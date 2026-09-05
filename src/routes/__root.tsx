@@ -145,14 +145,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
       {
         rel: "preload",
-        href: "/fonts/cormorant-500.woff2",
+        href: "/fonts/syne-latin-wght.woff2",
         as: "font",
         type: "font/woff2",
         crossOrigin: "anonymous",
       },
       {
         rel: "preload",
-        href: "/fonts/inter-400.woff2",
+        href: "/fonts/manrope-latin-wght.woff2",
         as: "font",
         type: "font/woff2",
         crossOrigin: "anonymous",

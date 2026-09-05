@@ -18,4 +18,49 @@ export default defineConfig({
   nitro: {
     preset: "vercel",
   },
+  vite: {
+    // Open the HTTP server before the full dep crawl finishes (big cold-start win on Windows).
+    optimizeDeps: {
+      holdUntilCrawlEnd: false,
+      include: [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "framer-motion",
+        "@tanstack/react-router",
+        "@tanstack/react-query",
+        "@radix-ui/react-dialog",
+        "clsx",
+        "tailwind-merge",
+        "class-variance-authority",
+      ],
+    },
+    build: {
+      cssCodeSplit: true,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules/framer-motion")) {
+              return "motion";
+            }
+            if (id.includes("node_modules/@radix-ui")) {
+              return "radix";
+            }
+          },
+        },
+      },
+    },
+    server: {
+      warmup: {
+        clientFiles: [
+          "./src/routes/__root.tsx",
+          "./src/routes/index.tsx",
+          "./src/styles.css",
+        ],
+      },
+      watch: {
+        ignored: ["**/.git/**", "**/.vercel/**", "**/.lovable/**", "**/dist/**"],
+      },
+    },
+  },
 });

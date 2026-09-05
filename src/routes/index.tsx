@@ -4,10 +4,7 @@ import {
   domAnimation,
   m,
   useReducedMotion,
-  useScroll,
-  useTransform,
 } from "framer-motion";
-import { Menu } from "lucide-react";
 import {
   lazy,
   Suspense,
@@ -18,14 +15,10 @@ import {
   type RefObject,
 } from "react";
 
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { BlurText } from "@/components/BlurText";
+import { Magnetic } from "@/components/Magnetic";
+import { ScrollReveal } from "@/components/ScrollReveal";
+import { SpotlightTilt } from "@/components/SpotlightTilt";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -37,7 +30,7 @@ const PHONE_TEL = "+27114930113";
 const ADDRESS = "22 Stevens Rd, Stafford, Johannesburg, 2197, South Africa";
 
 const MOTION_EASE = [0.22, 1, 0.36, 1] as const;
-const MOTION_DURATION = 0.55;
+const MOTION_DURATION = 0.32;
 const MOTION_LIFT = 8;
 const MOTION_STAGGER = 0.06;
 
@@ -48,11 +41,21 @@ const NAV_LINKS = [
   ["contact", "Contact"],
 ] as const;
 
-const LazyMotionLayer = lazy(() =>
-  import("@/components/MotionLayer").then((m) => ({ default: m.MotionLayer })),
+const LazyMobileNavSheet = lazy(() => import("@/components/MobileNavSheet"));
+const LazyHeroNotebook = lazy(() =>
+  import("@/components/MotionLayer").then((mod) => ({
+    default: mod.HeroNotebookScene,
+  })),
 );
-const LazyMotionBackdrop = lazy(() =>
-  import("@/components/MotionLayer").then((m) => ({ default: m.MotionBackdrop })),
+const LazySheetsFan = lazy(() =>
+  import("@/components/MotionLayer").then((mod) => ({
+    default: mod.SheetsFanScene,
+  })),
+);
+const LazyBindingPile = lazy(() =>
+  import("@/components/MotionLayer").then((mod) => ({
+    default: mod.BindingPileScene,
+  })),
 );
 
 type MotionMode = "idle" | "backdrop" | "full";
@@ -65,73 +68,100 @@ function resolveMotionMode(): Exclude<MotionMode, "idle"> {
       (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
         ?.saveData,
     );
-  // Keep decorative work paused while the tab is hidden; otherwise show full CSS-3D
-  // on all viewports (including mobile). Static backdrop only for a11y / data-saver.
-  if (reduce || saveData || document.hidden) return "backdrop";
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  // Only skip 3D on very constrained devices (Chrome reports deviceMemory in GB).
+  const lowEnd = typeof nav.deviceMemory === "number" && nav.deviceMemory <= 2;
+  if (reduce || saveData || lowEnd) return "backdrop";
   return "full";
 }
 
-/** Reactive motion mode — full CSS-3D by default; backdrop for reduced-motion / save-data. */
-function useDeferredMotionMode(): MotionMode {
+function scheduleIdle(cb: () => void, timeout = 500) {
+  if (typeof window === "undefined") return () => {};
+  const w = window as Window & {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+  if (typeof w.requestIdleCallback === "function") {
+    const id = w.requestIdleCallback(cb, { timeout });
+    return () => w.cancelIdleCallback?.(id);
+  }
+  const t = window.setTimeout(cb, Math.min(timeout, 160));
+  return () => window.clearTimeout(t);
+}
+
+/** Defer 3D until after load so Chrome isn't busy during first paint/scroll. */
+function useDeferredScenes() {
   const [mode, setMode] = useState<MotionMode>("idle");
+  const [heroReady, setHeroReady] = useState(false);
+  const [restReady, setRestReady] = useState(false);
 
   useEffect(() => {
-    let idleId: number | undefined;
-    let timeoutId: number | undefined;
     let cancelled = false;
+    let cancelIdle: (() => void) | undefined;
+    let cancelRest: (() => void) | undefined;
 
-    const apply = (next: Exclude<MotionMode, "idle">) => {
+    const start = () => {
       if (cancelled) return;
-      if (next === "full") void import("@/components/MotionLayer");
-      setMode(next);
-    };
-
-    const schedule = () => {
       const next = resolveMotionMode();
-      if (idleId !== undefined && typeof window.cancelIdleCallback === "function") {
-        window.cancelIdleCallback(idleId);
-        idleId = undefined;
-      }
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-        timeoutId = undefined;
-      }
-
-      if (next === "full" && typeof window.requestIdleCallback === "function") {
-        idleId = window.requestIdleCallback(() => apply(next), { timeout: 280 });
-      } else {
-        timeoutId = window.setTimeout(() => apply(next), next === "full" ? 32 : 80);
-      }
+      setMode(next);
+      if (next !== "full") return;
+      // Wait until the browser is quiet — never mid-scroll hitch from mounting 3D.
+      cancelIdle = scheduleIdle(() => {
+        if (cancelled) return;
+        setHeroReady(true);
+        // Static scenes are cheap — mount soon after hero, don't wait ~2s.
+        cancelRest = scheduleIdle(() => {
+          if (!cancelled) setRestReady(true);
+        }, 200);
+      }, 500);
     };
 
-    schedule();
+    if (document.readyState === "complete") {
+      start();
+    } else {
+      window.addEventListener("load", start, { once: true });
+    }
 
     const mqReduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const onChange = () => schedule();
-
+    const onChange = () => {
+      cancelIdle?.();
+      cancelRest?.();
+      setHeroReady(false);
+      setRestReady(false);
+      start();
+    };
     mqReduced.addEventListener("change", onChange);
-    document.addEventListener("visibilitychange", onChange);
-
-    const connection = (
-      navigator as Navigator & {
-        connection?: EventTarget & { saveData?: boolean };
-      }
-    ).connection;
-    connection?.addEventListener?.("change", onChange);
 
     return () => {
       cancelled = true;
-      if (idleId !== undefined && typeof window.cancelIdleCallback === "function") {
-        window.cancelIdleCallback(idleId);
-      }
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      cancelIdle?.();
+      cancelRest?.();
+      window.removeEventListener("load", start);
       mqReduced.removeEventListener("change", onChange);
-      document.removeEventListener("visibilitychange", onChange);
-      connection?.removeEventListener?.("change", onChange);
     };
   }, []);
 
-  return mode;
+  return {
+    mode,
+    showHero: mode === "full" && heroReady,
+    showRest: mode === "full" && restReady,
+  };
+}
+
+/** Unmount heavy scenes when off-screen (Chrome compositor win). */
+function useNearViewport(ref: RefObject<HTMLElement | null>, rootMargin = "15% 0px") {
+  const [near, setNear] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => setNear(entry.isIntersecting),
+      { rootMargin },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, rootMargin]);
+  return near;
 }
 
 const scrollTo = (id: string) => {
@@ -191,6 +221,8 @@ function Logo({
           width={360}
           height={144}
           decoding="async"
+          fetchPriority={size === "hero" ? "high" : "low"}
+          loading={size === "hero" ? "eager" : "lazy"}
         />
       </picture>
     </a>
@@ -201,12 +233,12 @@ function NavLink({
   id,
   label,
   active,
-  onNavigate,
+  onDark,
 }: {
   id: string;
   label: string;
   active?: boolean;
-  onNavigate?: () => void;
+  onDark?: boolean;
 }) {
   return (
     <a
@@ -214,13 +246,16 @@ function NavLink({
       onClick={(e) => {
         e.preventDefault();
         scrollTo(id);
-        onNavigate?.();
       }}
       aria-current={active ? "true" : undefined}
-      className={`gradient-underline text-[12px] font-medium uppercase tracking-[0.16em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[color:var(--color-royal)] ${
+      className={`gradient-underline text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[color:var(--color-royal)] ${
         active
-          ? "text-[color:var(--color-royal)]"
-          : "text-[color:var(--color-ink-2)] hover:text-[color:var(--color-royal)]"
+          ? onDark
+            ? "text-white"
+            : "text-[color:var(--color-royal)]"
+          : onDark
+            ? "text-white/65 hover:text-white"
+            : "text-[color:var(--color-ink-2)] hover:text-[color:var(--color-royal)]"
       }`}
     >
       {label}
@@ -231,47 +266,53 @@ function NavLink({
 function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("hero");
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
+    let raf = 0;
     const onScroll = () => {
-      setScrolled(window.scrollY > 80);
-      const ids = ["hero", "story", "print", "work", "contact"] as const;
-      let current: string = "hero";
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        const top = el.getBoundingClientRect().top;
-        if (top <= 120) current = id;
-      }
-      setActive(current);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        setScrolled(window.scrollY > 64);
+        const ids = ["hero", "story", "print", "work", "contact"] as const;
+        let current: string = "hero";
+        for (const id of ids) {
+          const el = document.getElementById(id);
+          if (!el) continue;
+          if (el.getBoundingClientRect().top <= 120) current = id;
+        }
+        setActive(current);
+      });
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, []);
+
+  const onDark = false;
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-colors duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-[background,box-shadow,backdrop-filter] duration-300 ${
         scrolled
-          ? "bg-white/95 shadow-[0_1px_0_rgba(0,120,168,0.1)]"
-          : "bg-transparent"
+          ? "bg-white/92 shadow-[0_1px_0_rgba(0,120,168,0.1)] backdrop-blur-md"
+          : "border-b border-[rgba(0,120,168,0.08)] bg-[rgba(243,247,248,0.72)] backdrop-blur-md"
       }`}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3 sm:px-8 lg:px-12">
-        <Logo
-          className={`transition-opacity duration-300 ${
-            scrolled ? "opacity-100" : "opacity-100 md:opacity-0 md:pointer-events-none"
-          }`}
-        />
+        <Logo />
 
-        <nav
-          className="hidden items-center gap-8 md:flex"
-          aria-label="Primary"
-        >
+        <nav className="hidden items-center gap-8 md:flex" aria-label="Primary">
           {NAV_LINKS.map(([id, label]) => (
-            <NavLink key={id} id={id} label={label} active={active === id} />
+            <NavLink
+              key={id}
+              id={id}
+              label={label}
+              active={active === id}
+              onDark={onDark}
+            />
           ))}
         </nav>
 
@@ -288,57 +329,29 @@ function Nav() {
             Get In Touch
           </a>
 
-          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-            <SheetTrigger asChild>
+          <Suspense
+            fallback={
               <button
                 type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-[4px] border border-[rgba(0,120,168,0.2)] bg-white/80 text-[color:var(--color-ink)] md:hidden"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[rgba(0,120,168,0.2)] bg-white/80 text-[color:var(--color-ink)] md:hidden"
                 aria-label="Open menu"
               >
-                <Menu className="h-5 w-5" aria-hidden />
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
               </button>
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="w-[min(100%,320px)] border-l border-[rgba(0,120,168,0.14)] bg-[color:var(--color-cream)] p-0"
-            >
-              <SheetHeader className="border-b border-[rgba(0,120,168,0.1)] px-6 py-5 text-left">
-                <SheetTitle className="font-serif text-2xl font-medium tracking-tight text-[color:var(--color-ink)]">
-                  Menu
-                </SheetTitle>
-              </SheetHeader>
-              <nav className="flex flex-col gap-1 px-4 py-4" aria-label="Mobile">
-                {NAV_LINKS.map(([id, label]) => (
-                  <SheetClose asChild key={id}>
-                    <a
-                      href={`#${id}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        scrollTo(id);
-                        setMenuOpen(false);
-                      }}
-                      className="rounded-[4px] px-3 py-3 text-[13px] font-medium uppercase tracking-[0.14em] text-[color:var(--color-ink-2)] hover:bg-white/70 hover:text-[color:var(--color-royal)]"
-                    >
-                      {label}
-                    </a>
-                  </SheetClose>
-                ))}
-                <SheetClose asChild>
-                  <a
-                    href="#contact"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      scrollTo("contact");
-                      setMenuOpen(false);
-                    }}
-                    className="btn-primary mt-4"
-                  >
-                    Get In Touch
-                  </a>
-                </SheetClose>
-              </nav>
-            </SheetContent>
-          </Sheet>
+            }
+          >
+            <LazyMobileNavSheet onNavigate={scrollTo} />
+          </Suspense>
         </div>
       </div>
     </header>
@@ -373,39 +386,37 @@ function useStaggerParent() {
   } as const;
 }
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
+function Eyebrow({
+  children,
+  onDark = false,
+}: {
+  children: React.ReactNode;
+  onDark?: boolean;
+}) {
   return (
-    <div className="eyebrow inline-flex items-center gap-2.5">
-      <span className="reg-cross" aria-hidden />
+    <div
+      className={`eyebrow inline-flex items-center gap-2.5 ${
+        onDark ? "text-[color:var(--color-eco-light)]" : ""
+      }`}
+    >
+      <span className={`reg-cross ${onDark ? "opacity-90" : ""}`} aria-hidden />
       <span>{children}</span>
     </div>
   );
 }
 
 function RulerProgress() {
-  const reduce = useReducedMotion();
-  const { scrollYProgress } = useScroll();
-  const height = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
-  if (reduce) return null;
-
-  return (
-    <div className="ruler-progress" aria-hidden>
-      <div
-        className="absolute inset-y-0 right-0 w-px"
-        style={{
-          background:
-            "repeating-linear-gradient(to bottom, rgba(0,120,168,0.35) 0 1px, transparent 1px 8px)",
-        }}
-      />
-      <m.div
-        className="absolute top-0 right-0 w-[3px] rounded-full bg-[color:var(--color-eco)]"
-        style={{ height, originY: 0 }}
-      />
-    </div>
-  );
+  // CSS scroll-driven when supported — avoids a Framer scroll subscription in Chrome.
+  return <div className="ruler-progress-css" aria-hidden />;
 }
 
-function Hero({ sectionRef }: { sectionRef: RefObject<HTMLElement | null> }) {
+function Hero({
+  sectionRef,
+  showScene,
+}: {
+  sectionRef: RefObject<HTMLElement | null>;
+  showScene: boolean;
+}) {
   const variants = useRevealVariants();
   const stagger = useStaggerParent();
   const reduce = useReducedMotion();
@@ -414,33 +425,52 @@ function Hero({ sectionRef }: { sectionRef: RefObject<HTMLElement | null> }) {
     <section
       ref={sectionRef}
       id="hero"
-      className="crop-marks relative scroll-mt-24 overflow-hidden bg-transparent pt-28 pb-24 lg:pt-32 lg:pb-28"
+      className="hero-band crop-marks relative min-h-[100dvh] scroll-mt-24 overflow-x-clip pt-28 pb-40 sm:pb-24 lg:pt-32 lg:pb-32"
     >
-      <div
-        aria-hidden
-        className="absolute inset-y-0 right-0 hidden md:block"
-        style={{
-          width: "52%",
-          background:
-            "linear-gradient(105deg, rgba(243,247,248,0.04) 0%, rgba(243,247,248,0.16) 48%, rgba(243,247,248,0.32) 100%)",
-          clipPath: "polygon(18% 0, 100% 0, 100% 100%, 4% 100%)",
-        }}
-      />
-      <div className="relative mx-auto grid max-w-7xl gap-12 px-6 sm:px-8 lg:grid-cols-12 lg:px-12">
+      <div className="hero-veil" aria-hidden />
+      <div className="hero-aurora" aria-hidden />
+      {showScene && (
+        <Suspense fallback={null}>
+          <LazyHeroNotebook sectionRef={sectionRef} />
+        </Suspense>
+      )}
+
+      <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 sm:px-8 lg:grid-cols-12 lg:px-12">
         <m.div
           initial={reduce ? false : "hidden"}
           animate="show"
           variants={stagger}
-          className="lg:col-span-7"
+          className="lg:col-span-5 xl:col-span-6"
         >
-          <m.div variants={variants} className="flex flex-col items-start gap-3">
+          <m.div variants={variants} className="flex flex-col items-start gap-4">
             <Logo size="hero" />
             <Eyebrow>Printing &amp; Book-Binding · Johannesburg</Eyebrow>
           </m.div>
-          <m.h1 variants={variants} className="display-title mt-5">
-            From the press to the{" "}
-            <span className="ink-accent italic text-[color:var(--color-royal)]">spine.</span>
-          </m.h1>
+
+          <div className="mt-6">
+            <h1 className="display-title text-[color:var(--color-ink)]">
+              <BlurText
+                as="span"
+                className="inline"
+                text="From the press to the"
+                delay={0.1}
+                stagger={0.07}
+              />{" "}
+              <m.span
+                className="ink-accent inline-block text-[color:var(--color-royal)]"
+                initial={reduce ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: reduce ? 0 : 0.35,
+                  delay: reduce ? 0 : 0.45,
+                  ease: MOTION_EASE,
+                }}
+              >
+                spine.
+              </m.span>
+            </h1>
+          </div>
+
           <m.p
             variants={variants}
             className="mt-8 max-w-xl text-[clamp(1.05rem,2.2vw,1.2rem)] leading-relaxed text-[color:var(--color-body)]"
@@ -449,12 +479,30 @@ function Hero({ sectionRef }: { sectionRef: RefObject<HTMLElement | null> }) {
             one standard of finish.
           </m.p>
           <m.div variants={variants} className="mt-10 flex flex-wrap gap-3">
-            <a href="#print" onClick={(e) => { e.preventDefault(); scrollTo("print"); }} className="btn-primary">
-              What We Print
-            </a>
-            <a href="#story" onClick={(e) => { e.preventDefault(); scrollTo("story"); }} className="btn-ghost">
-              Our Story
-            </a>
+            <Magnetic>
+              <a
+                href="#print"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollTo("print");
+                }}
+                className="btn-primary"
+              >
+                What We Print
+              </a>
+            </Magnetic>
+            <Magnetic strength={0.22}>
+              <a
+                href="#story"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollTo("story");
+                }}
+                className="btn-ghost"
+              >
+                Our Story
+              </a>
+            </Magnetic>
           </m.div>
           <m.div variants={variants} className="mt-12">
             <ColorBar />
@@ -484,7 +532,7 @@ function Section({
     <section
       ref={sectionRef}
       id={id}
-      className={`relative scroll-mt-24 py-32 lg:py-44 ${withCrop ? "crop-marks" : ""} ${deferPaint ? "cv-auto" : ""} ${className}`}
+      className={`relative scroll-mt-24 py-20 lg:py-28 ${withCrop ? "crop-marks" : ""} ${deferPaint ? "cv-auto" : ""} ${className}`}
     >
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">{children}</div>
     </section>
@@ -516,9 +564,20 @@ function SectionOpener({
       <m.div variants={variants}>
         <Eyebrow>{eyebrow}</Eyebrow>
       </m.div>
-      <m.h2 variants={variants} className="section-title mt-6">
-        {title}
-      </m.h2>
+      {typeof title === "string" ? (
+        <BlurText
+          as="h2"
+          className="section-title mt-6"
+          text={title}
+          trigger="view"
+          stagger={0.05}
+          delay={0.05}
+        />
+      ) : (
+        <ScrollReveal className="mt-6" delay={0.05}>
+          <h2 className="section-title">{title}</h2>
+        </ScrollReveal>
+      )}
       {children}
     </m.div>
   );
@@ -528,15 +587,17 @@ function Story() {
   const variants = useRevealVariants();
   const stagger = useStaggerParent();
   return (
-    <Section id="story" deferPaint>
+    <Section id="story" className="pt-36 sm:pt-20 lg:pt-28">
       <div className="grid gap-16 lg:grid-cols-12">
-        <div className="lg:col-span-5">
+        {/* Left cols reserved for SheetsFanScene */}
+        <div className="hidden lg:col-span-5 lg:block" aria-hidden />
+        <div className="lg:col-span-7">
           <SectionOpener
             eyebrow="Our Story"
             title={
               <>
                 A print shop and{" "}
-                <span className="ink-accent italic text-[color:var(--color-royal)]">
+                <span className="ink-accent text-[color:var(--color-royal)]">
                   bindery
                 </span>
                 , under one roof.
@@ -549,7 +610,7 @@ function Story() {
           whileInView="show"
           viewport={{ once: true, amount: 0.15 }}
           variants={stagger}
-          className="lg:col-span-6 lg:col-start-7 lg:pt-16"
+          className="lg:col-span-7 lg:col-start-6 lg:pt-4"
         >
           <m.p
             variants={variants}
@@ -616,13 +677,13 @@ function WhatWePrint() {
   const stagger = useStaggerParent();
 
   return (
-    <Section id="print" deferPaint withCrop>
+    <Section id="print" withCrop>
       <m.div
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.15 }}
         variants={stagger}
-        className="max-w-3xl"
+        className="max-w-3xl lg:ml-[min(38%,22rem)]"
       >
         <m.div variants={variants} className="mb-8">
           <ColorBar className="max-w-[180px]" />
@@ -630,9 +691,14 @@ function WhatWePrint() {
         <m.div variants={variants}>
           <Eyebrow>What We Print</Eyebrow>
         </m.div>
-        <m.h2 variants={variants} className="section-title mt-6">
-          Notebooks, diaries — printed and bound to order.
-        </m.h2>
+        <BlurText
+          as="h2"
+          className="section-title mt-6"
+          text="Notebooks, diaries — printed and bound to order."
+          trigger="view"
+          stagger={0.05}
+          delay={0.05}
+        />
         <m.p
           variants={variants}
           className="mt-6 max-w-2xl text-[18px] leading-relaxed text-[color:var(--color-body)]"
@@ -685,71 +751,76 @@ function WhatWePrint() {
         whileInView="show"
         viewport={{ once: true, amount: 0.12 }}
         variants={stagger}
-        className="mt-16 hidden gap-5 md:grid md:grid-cols-12"
+        className="mt-16 hidden gap-5 md:grid md:grid-cols-12 lg:pl-[min(34%,18rem)]"
       >
-        <m.a
+        <m.div
           variants={variants}
-          href="#contact"
-          onClick={(e) => {
-            e.preventDefault();
-            scrollTo("contact");
-          }}
-          className="product-feature md:col-span-7 lg:col-span-7"
+          className="md:col-span-7 lg:col-span-7"
         >
-          <div>
-            <div className="flex items-baseline gap-4">
-              <span className="font-serif text-[56px] leading-none tracking-tight text-[rgba(0,120,168,0.16)]">
-                {featured.n}
-              </span>
-              <span
-                aria-hidden
-                className="h-px flex-1 bg-[rgba(0,120,168,0.12)]"
-              />
+          <SpotlightTilt
+            href="#contact"
+            onClick={(e) => {
+              e.preventDefault();
+              scrollTo("contact");
+            }}
+            className="product-feature h-full"
+          >
+            <div>
+              <div className="flex items-baseline gap-4">
+                <span className="font-serif text-[56px] leading-none tracking-tight text-[rgba(0,120,168,0.16)]">
+                  {featured.n}
+                </span>
+                <span
+                  aria-hidden
+                  className="h-px flex-1 bg-[rgba(0,120,168,0.12)]"
+                />
+              </div>
+              <h3 className="mt-8 font-serif text-[42px] leading-[1.08] tracking-tight text-[color:var(--color-ink)] lg:text-[48px]">
+                {featured.title}
+              </h3>
+              <p className="mt-5 max-w-md text-[16px] leading-relaxed text-[color:var(--color-body)] md:text-[17px]">
+                {featured.desc}
+              </p>
             </div>
-            <h3 className="mt-8 font-serif text-[42px] leading-[1.08] tracking-tight text-[color:var(--color-ink)] lg:text-[48px]">
-              {featured.title}
-            </h3>
-            <p className="mt-5 max-w-md text-[16px] leading-relaxed text-[color:var(--color-body)] md:text-[17px]">
-              {featured.desc}
-            </p>
-          </div>
-          <div className="mt-12 flex items-center justify-between gap-4 border-t border-[rgba(0,120,168,0.1)] pt-5">
-            <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-[color:var(--color-eco-deep)]">
-              Discuss this product
-            </span>
-            <span aria-hidden className="text-[color:var(--color-royal)]">
-              →
-            </span>
-          </div>
-        </m.a>
+            <div className="mt-12 flex items-center justify-between gap-4 border-t border-[rgba(0,120,168,0.1)] pt-5">
+              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-[color:var(--color-eco-deep)]">
+                Discuss this product
+              </span>
+              <span aria-hidden className="text-[color:var(--color-royal)]">
+                →
+              </span>
+            </div>
+          </SpotlightTilt>
+        </m.div>
 
         <div className="flex flex-col gap-4 md:col-span-5">
           {supporting.map((item) => (
-            <m.a
-              key={item.title}
-              variants={variants}
-              href="#contact"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollTo("contact");
-              }}
-              className="product-panel"
-            >
-              <div className="flex items-baseline gap-3">
-                <span className="font-serif text-[24px] leading-none tracking-tight text-[rgba(0,120,168,0.22)]">
-                  {item.n}
+            <m.div key={item.title} variants={variants}>
+              <SpotlightTilt
+                href="#contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollTo("contact");
+                }}
+                className="product-panel"
+                maxTilt={5}
+              >
+                <div className="flex items-baseline gap-3">
+                  <span className="font-serif text-[24px] leading-none tracking-tight text-[rgba(0,120,168,0.22)]">
+                    {item.n}
+                  </span>
+                  <h3 className="font-serif text-[24px] leading-tight tracking-tight text-[color:var(--color-ink)]">
+                    {item.title}
+                  </h3>
+                </div>
+                <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--color-body)]">
+                  {item.desc}
+                </p>
+                <span className="mt-4 inline-block text-[11px] font-medium uppercase tracking-[0.16em] text-[color:var(--color-eco-deep)]">
+                  Discuss this product →
                 </span>
-                <h3 className="font-serif text-[24px] leading-tight tracking-tight text-[color:var(--color-ink)]">
-                  {item.title}
-                </h3>
-              </div>
-              <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--color-body)]">
-                {item.desc}
-              </p>
-              <span className="mt-4 inline-block text-[11px] font-medium uppercase tracking-[0.16em] text-[color:var(--color-eco-deep)]">
-                Discuss this product →
-              </span>
-            </m.a>
+              </SpotlightTilt>
+            </m.div>
           ))}
         </div>
       </m.div>
@@ -759,8 +830,10 @@ function WhatWePrint() {
 
 function HowWeWork({
   sectionRef,
+  showScene,
 }: {
   sectionRef: RefObject<HTMLElement | null>;
+  showScene: boolean;
 }) {
   const steps = [
     [
@@ -784,95 +857,105 @@ function HowWeWork({
       "Covers, finishing and a final hand check before anything ships.",
     ],
   ] as const;
-  const reduce = useReducedMotion();
   const variants = useRevealVariants();
   const stagger = useStaggerParent();
-  const lineRef = useRef<HTMLDivElement | null>(null);
-  const { scrollYProgress } = useScroll({
-    target: lineRef,
-    offset: ["start 80%", "end 40%"],
-  });
-  // Transform-only progress (scaleX + translateX), never width/left
-  const fillScale = useTransform(scrollYProgress, [0, 1], [0, 1]);
-  const markerX = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
+  const reduce = useReducedMotion();
+
+  const stepDot = reduce
+    ? undefined
+    : ({
+        hidden: { opacity: 0, scale: 0.55 },
+        show: {
+          opacity: 1,
+          scale: 1,
+          transition: { duration: 0.4, ease: MOTION_EASE },
+        },
+      } as const);
 
   return (
-    <Section
+    <section
+      ref={sectionRef}
       id="work"
-      className="bg-[color:var(--color-cream)]/50"
-      sectionRef={sectionRef}
-      deferPaint
+      className="scene-window-right relative scroll-mt-24 pt-36 pb-20 sm:pt-20 lg:py-28"
     >
-      <div className="grid gap-16 lg:grid-cols-12">
-        <div className="lg:col-span-5">
-          <SectionOpener
-            eyebrow="How We Work"
-            title="From plates to pages, bound by hand."
-          />
-        </div>
-        <m.p
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, amount: 0.15 }}
-          variants={variants}
-          className="text-[18px] leading-relaxed text-[color:var(--color-body)] lg:col-span-6 lg:col-start-7 lg:pt-24"
-        >
-          We are not a reseller of imported stock. Alpine-eco runs the press and the
-          bindery — which means tighter quality control, clearer turnaround, and the
-          flexibility to take on genuine custom work.
-        </m.p>
-      </div>
-
-      <div ref={lineRef} className="relative mt-20">
-        <div
-          aria-hidden
-          className="absolute left-0 right-0 top-6 hidden h-px bg-[rgba(0,120,168,0.18)] lg:block"
-        />
-        <m.div
-          aria-hidden
-          className="absolute left-0 top-6 hidden h-px origin-left lg:block"
-          style={{
-            width: "100%",
-            scaleX: fillScale,
-            background: "linear-gradient(90deg, var(--color-royal), var(--color-eco))",
-          }}
-        />
-        {!reduce && (
-          <m.div
-            aria-hidden
-            className="absolute top-[14px] hidden h-5 w-4 -translate-x-1/2 rounded-[1px] border border-[rgba(0,120,168,0.35)] bg-white shadow-sm lg:block"
-            style={{ x: markerX, left: 0 }}
+      {showScene && (
+        <Suspense fallback={null}>
+          <LazyBindingPile sectionRef={sectionRef} />
+        </Suspense>
+      )}
+      <div className="relative z-10 mx-auto max-w-7xl px-6 pt-8 sm:px-8 lg:px-12 lg:pr-[min(38%,20rem)]">
+        <div className="grid gap-16 lg:grid-cols-12">
+          <div className="max-w-xl lg:col-span-6">
+            <SectionOpener
+              eyebrow="How We Work"
+              title="From plates to pages, bound by hand."
+            />
+          </div>
+          <m.p
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.15 }}
+            variants={variants}
+            className="max-w-xl text-[18px] leading-relaxed text-[color:var(--color-body)] lg:col-span-6 lg:col-start-1 lg:pt-4"
           >
-            <div className="mx-auto mt-1 h-2 w-[2px] bg-[color:var(--color-eco)]" />
+            We are not a reseller of imported stock. Alpine-eco runs the press and the
+            bindery — which means tighter quality control, clearer turnaround, and the
+            flexibility to take on genuine custom work.
+          </m.p>
+        </div>
+
+        <div className="relative mt-20">
+          {reduce ? (
+            <div
+              aria-hidden
+              className="absolute left-0 right-0 top-6 hidden h-px bg-gradient-to-r from-[color:var(--color-royal)] to-[color:var(--color-eco)] opacity-35 lg:block"
+            />
+          ) : (
+            <m.div
+              aria-hidden
+              className="absolute left-0 right-0 top-6 hidden h-px origin-left bg-gradient-to-r from-[color:var(--color-royal)] to-[color:var(--color-eco)] lg:block"
+              initial={{ scaleX: 0, opacity: 0.15 }}
+              whileInView={{ scaleX: 1, opacity: 0.4 }}
+              viewport={{ once: true, amount: 0.35 }}
+              transition={{ duration: 0.75, ease: MOTION_EASE }}
+            />
+          )}
+          <m.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.15 }}
+            variants={stagger}
+            className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {steps.map(([n, title, desc]) => (
+              <m.div key={n} variants={variants} className="relative">
+                {reduce ? (
+                  <div
+                    aria-hidden
+                    className="mb-6 hidden h-3 w-3 rounded-full border border-[rgba(0,120,168,0.4)] bg-white lg:block"
+                  />
+                ) : (
+                  <m.div
+                    aria-hidden
+                    variants={stepDot}
+                    className="mb-6 hidden h-3 w-3 rounded-full border border-[rgba(0,120,168,0.4)] bg-white lg:block"
+                  />
+                )}
+                <div className="text-[12px] font-medium uppercase tracking-[0.16em] text-[color:var(--color-royal)]">
+                  {n}
+                </div>
+                <h3 className="mt-3 font-serif text-[28px] leading-tight tracking-tight text-[color:var(--color-ink)]">
+                  {title}
+                </h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
+                  {desc}
+                </p>
+              </m.div>
+            ))}
           </m.div>
-        )}
-        <m.div
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, amount: 0.15 }}
-          variants={stagger}
-          className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {steps.map(([n, title, desc]) => (
-            <m.div key={n} variants={variants} className="relative">
-              <div
-                aria-hidden
-                className="mb-6 hidden h-3 w-3 rounded-full border border-[rgba(0,120,168,0.4)] bg-white lg:block"
-              />
-              <div className="text-[12px] font-medium uppercase tracking-[0.16em] text-[color:var(--color-royal)]">
-                {n}
-              </div>
-              <h3 className="mt-3 font-serif text-[28px] leading-tight tracking-tight text-[color:var(--color-ink)]">
-                {title}
-              </h3>
-              <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
-                {desc}
-              </p>
-            </m.div>
-          ))}
-        </m.div>
+        </div>
       </div>
-    </Section>
+    </section>
   );
 }
 
@@ -880,7 +963,7 @@ function CTA() {
   const variants = useRevealVariants();
   const stagger = useStaggerParent();
   return (
-    <Section id="contact" deferPaint>
+    <Section id="contact" className="bg-[color:var(--color-cream)]">
       <m.div
         initial="hidden"
         whileInView="show"
@@ -895,11 +978,13 @@ function CTA() {
           <m.div variants={variants}>
             <Eyebrow>Get In Touch</Eyebrow>
           </m.div>
-          <m.h2 variants={variants} className="section-title mt-6">
-            Got a print or binding{" "}
-            <span className="ink-accent italic text-[color:var(--color-royal)]">job</span>{" "}
-            in mind?
-          </m.h2>
+          <ScrollReveal className="mt-6" delay={0.05}>
+            <h2 className="section-title">
+              Got a print or binding{" "}
+              <span className="ink-accent text-[color:var(--color-royal)]">job</span>{" "}
+              in mind?
+            </h2>
+          </ScrollReveal>
           <m.p
             variants={variants}
             className="mt-6 max-w-xl text-[18px] leading-relaxed text-[color:var(--color-body)]"
@@ -913,12 +998,16 @@ function CTA() {
           className="flex flex-col justify-end gap-6 lg:col-span-5 lg:col-start-8"
         >
           <div className="flex flex-wrap gap-3">
-            <a href={`mailto:${EMAIL}`} className="btn-primary">
-              Email Alpine-eco
-            </a>
-            <a href={`tel:${PHONE_TEL}`} className="btn-ghost">
-              Call {PHONE_DISPLAY}
-            </a>
+            <Magnetic>
+              <a href={`mailto:${EMAIL}`} className="btn-primary">
+                Email Alpine-eco
+              </a>
+            </Magnetic>
+            <Magnetic strength={0.22}>
+              <a href={`tel:${PHONE_TEL}`} className="btn-ghost">
+                Call {PHONE_DISPLAY}
+              </a>
+            </Magnetic>
           </div>
           <address className="not-italic text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
             {ADDRESS}
@@ -932,7 +1021,7 @@ function CTA() {
 function Footer() {
   const year = new Date().getFullYear();
   return (
-    <footer className="cv-auto border-t border-[rgba(0,120,168,0.14)] bg-white/70 py-20">
+    <footer className="border-t border-[rgba(0,120,168,0.14)] bg-[color:var(--color-cream)] py-20">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         <ColorBar className="mb-10 max-w-[160px]" />
       </div>
@@ -992,7 +1081,7 @@ function Footer() {
       </div>
       <div className="mx-auto mt-14 max-w-7xl border-t border-[rgba(0,120,168,0.10)] px-6 pt-8 sm:px-8 lg:px-12">
         <p className="text-[13px] leading-relaxed tracking-wide text-[color:var(--color-body)]">
-          Set in Cormorant Garamond &amp; Inter · Printed &amp; bound in Johannesburg · ©{" "}
+          Set in Syne &amp; Manrope · Printed &amp; bound in Johannesburg · ©{" "}
           {year} Alpine-eco Notebooks &amp; Diaries
         </p>
         <div className="mt-6">
@@ -1007,34 +1096,34 @@ function Index() {
   const heroRef = useRef<HTMLElement | null>(null);
   const sheetsRef = useRef<HTMLDivElement | null>(null);
   const workRef = useRef<HTMLElement | null>(null);
-  const motionMode = useDeferredMotionMode();
+  const { showHero, showRest } = useDeferredScenes();
+  const heroNear = useNearViewport(heroRef, "30% 0px");
 
   return (
     <LazyMotion features={domAnimation}>
       <a href="#main-content" className="skip-link">
         Skip to content
       </a>
-      <Suspense fallback={null}>
-        {motionMode === "full" ? (
-          <LazyMotionLayer
-            heroRef={heroRef}
-            sheetsRef={sheetsRef as RefObject<HTMLElement | null>}
-            workRef={workRef}
-          />
-        ) : motionMode === "backdrop" ? (
-          <LazyMotionBackdrop />
-        ) : null}
-      </Suspense>
-      <div className="relative z-20 isolate min-h-[100dvh] overflow-x-clip bg-transparent">
+      <div className="site-backdrop" aria-hidden />
+      {/* Desktop-only paper grain — CSS already hides below 768px */}
+      <div className="site-grain hidden md:block" aria-hidden />
+      <div className="relative z-10 min-h-[100dvh] overflow-x-clip bg-transparent">
         <RulerProgress />
         <Nav />
         <main id="main-content">
-          <Hero sectionRef={heroRef} />
-          <div ref={sheetsRef}>
-            <Story />
-            <WhatWePrint />
+          <Hero sectionRef={heroRef} showScene={showHero && heroNear} />
+          <div ref={sheetsRef} className="scene-window-left relative">
+            {showRest && (
+              <Suspense fallback={null}>
+                <LazySheetsFan sectionRef={sheetsRef} />
+              </Suspense>
+            )}
+            <div className="relative z-10">
+              <Story />
+              <WhatWePrint />
+            </div>
           </div>
-          <HowWeWork sectionRef={workRef} />
+          <HowWeWork sectionRef={workRef} showScene={showRest} />
           <CTA />
         </main>
         <Footer />
