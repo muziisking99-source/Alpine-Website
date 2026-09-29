@@ -36,7 +36,7 @@ const MOTION_STAGGER = 0.06;
 
 const NAV_LINKS = [
   ["story", "Story"],
-  ["print", "What We Print"],
+  ["print", "The Range"],
   ["work", "How We Work"],
   ["contact", "Contact"],
 ] as const;
@@ -326,7 +326,7 @@ function Nav() {
             className="btn-primary hidden sm:inline-flex"
             style={{ padding: "12px 22px" }}
           >
-            Get In Touch
+            Enquire
           </a>
 
           <Suspense
@@ -452,7 +452,7 @@ function Hero({
               <BlurText
                 as="span"
                 className="inline"
-                text="From the press to the"
+                text="Print with"
                 delay={0.1}
                 stagger={0.07}
               />{" "}
@@ -462,11 +462,11 @@ function Hero({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
                   duration: reduce ? 0 : 0.35,
-                  delay: reduce ? 0 : 0.45,
+                  delay: reduce ? 0 : 0.35,
                   ease: MOTION_EASE,
                 }}
               >
-                spine.
+                Alpine-eco.
               </m.span>
             </h1>
           </div>
@@ -475,32 +475,31 @@ function Hero({
             variants={variants}
             className="mt-8 max-w-xl text-[clamp(1.05rem,2.2vw,1.2rem)] leading-relaxed text-[color:var(--color-body)]"
           >
-            We print, cut and bind notebooks, diaries and journals in-house — one roof,
-            one standard of finish.
+            Notebooks, diaries and journals, printed and bound under one roof in Stafford.
           </m.p>
           <m.div variants={variants} className="mt-10 flex flex-wrap gap-3">
             <Magnetic>
+              <a
+                href="#contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollTo("contact");
+                }}
+                className="btn-primary"
+              >
+                Request a quotation
+              </a>
+            </Magnetic>
+            <Magnetic strength={0.22}>
               <a
                 href="#print"
                 onClick={(e) => {
                   e.preventDefault();
                   scrollTo("print");
                 }}
-                className="btn-primary"
-              >
-                What We Print
-              </a>
-            </Magnetic>
-            <Magnetic strength={0.22}>
-              <a
-                href="#story"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollTo("story");
-                }}
                 className="btn-ghost"
               >
-                Our Story
+                The range
               </a>
             </Magnetic>
           </m.div>
@@ -596,11 +595,11 @@ function Story() {
             eyebrow="Our Story"
             title={
               <>
-                A print shop and{" "}
+                Press and{" "}
                 <span className="ink-accent text-[color:var(--color-royal)]">
-                  bindery
-                </span>
-                , under one roof.
+                  bindery,
+                </span>{" "}
+                under one roof.
               </>
             }
           />
@@ -617,22 +616,21 @@ function Story() {
             className="text-[18px] leading-relaxed text-[color:var(--color-body)] md:text-[19px]"
           >
             Based in Stafford, Johannesburg, Alpine-eco runs the press and the bindery
-            ourselves. Notebooks, diaries and journals are printed, trimmed and bound
-            on site — not assembled from outsourced parts.
+            on site. Notebooks, diaries and journals are printed, trimmed and bound
+            under one roof.
           </m.p>
           <m.p
             variants={variants}
             className="mt-5 text-[18px] leading-relaxed text-[color:var(--color-body)] md:text-[19px]"
           >
-            That is the whole business: accurate colour, clean finishing, and binding
-            that holds up to real use — for offices, schools, studios and private
-            orders across South Africa.
+            Accurate colour, clean finishing, and binding that holds up to everyday use —
+            for companies, schools, and private clients across South Africa.
           </m.p>
           <m.ul variants={variants} className="mt-10 space-y-4">
             {[
-              "Litho and digital printing, run in-house",
-              "Binding and finishing completed under one roof",
-              "Hand-checked before every delivery leaves Stafford",
+              "Litho and digital printing on site",
+              "Binding and finishing in the same works",
+              "Checked by hand before it leaves Stafford",
             ].map((t) => (
               <li
                 key={t}
@@ -669,7 +667,7 @@ function WhatWePrint() {
     {
       n: "04",
       title: "Corporate & Custom",
-      desc: "Branded diaries and notebooks for teams, clients, schools and year-end gifting.",
+      desc: "Branded diaries and notebooks for companies, schools, and year-end gifts.",
     },
   ] as const;
 
@@ -689,12 +687,12 @@ function WhatWePrint() {
           <ColorBar className="max-w-[180px]" />
         </m.div>
         <m.div variants={variants}>
-          <Eyebrow>What We Print</Eyebrow>
+          <Eyebrow>The Range</Eyebrow>
         </m.div>
         <BlurText
           as="h2"
           className="section-title mt-6"
-          text="Notebooks, diaries — printed and bound to order."
+          text="Printed and bound to order."
           trigger="view"
           stagger={0.05}
           delay={0.05}
@@ -703,8 +701,8 @@ function WhatWePrint() {
           variants={variants}
           className="mt-6 max-w-2xl text-[18px] leading-relaxed text-[color:var(--color-body)]"
         >
-          From a short personal run to a full office order, we manufacture paper goods
-          across four areas — printed and bound in Johannesburg.
+          From a short personal run through to a full corporate order — notebooks,
+          diaries, journals and branded work, printed and bound in Johannesburg.
         </m.p>
       </m.div>
 
@@ -737,8 +735,8 @@ function WhatWePrint() {
               <span className="mt-2 block text-[15px] leading-relaxed text-[color:var(--color-body)]">
                 {item.desc}
               </span>
-              <span className="mt-3 inline-block text-[11px] font-medium uppercase tracking-[0.16em] text-[color:var(--color-eco-deep)]">
-                Discuss this product →
+              <span className="mt-3 inline-block text-[13px] font-medium tracking-[0.02em] text-[color:var(--color-eco-deep)]">
+                Request a quotation →
               </span>
             </span>
           </m.a>
@@ -783,8 +781,8 @@ function WhatWePrint() {
               </p>
             </div>
             <div className="mt-12 flex items-center justify-between gap-4 border-t border-[rgba(0,120,168,0.1)] pt-5">
-              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-[color:var(--color-eco-deep)]">
-                Discuss this product
+              <span className="text-[13px] font-medium tracking-[0.02em] text-[color:var(--color-eco-deep)]">
+                Request a quotation
               </span>
               <span aria-hidden className="text-[color:var(--color-royal)]">
                 →
@@ -816,8 +814,8 @@ function WhatWePrint() {
                 <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--color-body)]">
                   {item.desc}
                 </p>
-                <span className="mt-4 inline-block text-[11px] font-medium uppercase tracking-[0.16em] text-[color:var(--color-eco-deep)]">
-                  Discuss this product →
+                <span className="mt-4 inline-block text-[13px] font-medium tracking-[0.02em] text-[color:var(--color-eco-deep)]">
+                  Request a quotation →
                 </span>
               </SpotlightTilt>
             </m.div>
@@ -854,7 +852,7 @@ function HowWeWork({
     [
       "04",
       "Finish & Check",
-      "Covers, finishing and a final hand check before anything ships.",
+      "A final check, then dispatched.",
     ],
   ] as const;
   const variants = useRevealVariants();
@@ -888,7 +886,7 @@ function HowWeWork({
           <div className="max-w-xl lg:col-span-6">
             <SectionOpener
               eyebrow="How We Work"
-              title="From plates to pages, bound by hand."
+              title="From press to binding."
             />
           </div>
           <m.p
@@ -898,9 +896,8 @@ function HowWeWork({
             variants={variants}
             className="max-w-xl text-[18px] leading-relaxed text-[color:var(--color-body)] lg:col-span-6 lg:col-start-1 lg:pt-4"
           >
-            We are not a reseller of imported stock. Alpine-eco runs the press and the
-            bindery — which means tighter quality control, clearer turnaround, and the
-            flexibility to take on genuine custom work.
+            The press and the bindery are both on site in Stafford, so colour, trimming,
+            and binding stay with us from start to finish.
           </m.p>
         </div>
 
@@ -976,21 +973,17 @@ function CTA() {
             <ColorBar className="max-w-[180px]" />
           </m.div>
           <m.div variants={variants}>
-            <Eyebrow>Get In Touch</Eyebrow>
+            <Eyebrow>Enquire</Eyebrow>
           </m.div>
           <ScrollReveal className="mt-6" delay={0.05}>
-            <h2 className="section-title">
-              Got a print or binding{" "}
-              <span className="ink-accent text-[color:var(--color-royal)]">job</span>{" "}
-              in mind?
-            </h2>
+            <h2 className="section-title">Request a quotation.</h2>
           </ScrollReveal>
           <m.p
             variants={variants}
             className="mt-6 max-w-xl text-[18px] leading-relaxed text-[color:var(--color-body)]"
           >
-            Enquire for bulk orders, corporate runs or a custom print and binding quote.
-            We are based in Stafford, Johannesburg.
+            For corporate orders, short runs, or a custom binding. We are in Stafford,
+            Johannesburg.
           </m.p>
         </div>
         <m.div
@@ -1000,7 +993,7 @@ function CTA() {
           <div className="flex flex-wrap gap-3">
             <Magnetic>
               <a href={`mailto:${EMAIL}`} className="btn-primary">
-                Email Alpine-eco
+                Email us
               </a>
             </Magnetic>
             <Magnetic strength={0.22}>
@@ -1029,8 +1022,8 @@ function Footer() {
         <div className="lg:col-span-5">
           <Logo size="footer" />
           <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
-            A Johannesburg printing and book-binding company — notebooks, diaries and
-            journals manufactured in-house, from press to spine.
+            Printing and book-binding in Johannesburg. Notebooks, diaries and journals
+            made on site, from press to spine.
           </p>
         </div>
         <div className="lg:col-span-3 lg:col-start-7">
@@ -1081,8 +1074,8 @@ function Footer() {
       </div>
       <div className="mx-auto mt-14 max-w-7xl border-t border-[rgba(0,120,168,0.10)] px-6 pt-8 sm:px-8 lg:px-12">
         <p className="text-[13px] leading-relaxed tracking-wide text-[color:var(--color-body)]">
-          Set in Syne &amp; Manrope · Printed &amp; bound in Johannesburg · ©{" "}
-          {year} Alpine-eco Notebooks &amp; Diaries
+          Printed &amp; bound in Johannesburg · © {year} Alpine-eco Notebooks &amp;
+          Diaries
         </p>
         <div className="mt-6">
           <ColorBar className="max-w-[120px]" />

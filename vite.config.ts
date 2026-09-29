@@ -22,17 +22,38 @@ export default defineConfig({
     // Open the HTTP server before the full dep crawl finishes (big cold-start win on Windows).
     optimizeDeps: {
       holdUntilCrawlEnd: false,
+      // Only scan real app entries — skip the unused shadcn/ui tree.
+      entries: [
+        "src/routes/**/*.{ts,tsx}",
+        "src/router.tsx",
+        "src/start.ts",
+        "src/server.ts",
+        "src/components/*.{ts,tsx}",
+        "!src/components/ui/**",
+      ],
       include: [
         "react",
         "react-dom",
         "react/jsx-runtime",
+        "react/jsx-dev-runtime",
         "framer-motion",
         "@tanstack/react-router",
         "@tanstack/react-query",
-        "@radix-ui/react-dialog",
         "clsx",
         "tailwind-merge",
         "class-variance-authority",
+      ],
+      exclude: [
+        "recharts",
+        "embla-carousel-react",
+        "react-day-picker",
+        "cmdk",
+        "vaul",
+        "input-otp",
+        "react-resizable-panels",
+        "sonner",
+        "date-fns",
+        "lucide-react",
       ],
     },
     build: {
@@ -43,23 +64,24 @@ export default defineConfig({
             if (id.includes("node_modules/framer-motion")) {
               return "motion";
             }
-            if (id.includes("node_modules/@radix-ui")) {
-              return "radix";
-            }
           },
         },
       },
     },
     server: {
+      // Warm only the shell — warming index pulls framer-motion + scenes and slows cold start.
       warmup: {
-        clientFiles: [
-          "./src/routes/__root.tsx",
-          "./src/routes/index.tsx",
-          "./src/styles.css",
-        ],
+        clientFiles: ["./src/routes/__root.tsx", "./src/styles.css"],
       },
       watch: {
-        ignored: ["**/.git/**", "**/.vercel/**", "**/.lovable/**", "**/dist/**"],
+        ignored: [
+          "**/.git/**",
+          "**/.vercel/**",
+          "**/.lovable/**",
+          "**/dist/**",
+          "**/node_modules/**",
+          "**/src/components/ui/**",
+        ],
       },
     },
   },
