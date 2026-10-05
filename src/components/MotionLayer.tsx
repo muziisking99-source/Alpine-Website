@@ -111,13 +111,31 @@ export function HeroNotebookScene({
     offset: ["start start", "end start"],
   });
 
-  // One axis of motion only — Chrome stays smoother with fewer scroll bindings.
+  // Staged cinematic beats: closed → crack → reveal pages → pull-back
+  // Each stage gets its own scroll range for readability
   const coverOpen = useTransform(
     scrollYProgress,
-    [0, 0.35, 1],
-    reduce ? [-22, -22, -22] : [-18, -55, -100],
+    [0, 0.15, 0.35, 0.65, 1],
+    reduce ? [-22, -22, -22, -22, -22] : [-18, -28, -65, -88, -95],
   );
-  const y = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -16]);
+  
+  const pageReveal = useTransform(
+    scrollYProgress,
+    [0, 0.25, 0.5, 1],
+    [0, 0, 1, 1],
+  );
+  
+  const y = useTransform(
+    scrollYProgress, 
+    [0, 0.7, 1], 
+    [0, reduce ? 0 : -8, reduce ? 0 : -20]
+  );
+
+  const scale = useTransform(
+    scrollYProgress,
+    [0, 0.4, 0.8, 1],
+    [1, 1.04, 0.98, 0.96],
+  );
 
   return (
     <div
@@ -128,9 +146,9 @@ export function HeroNotebookScene({
         perspectiveOrigin: "40% 45%",
       }}
     >
-      <m.div style={{ y }} className="relative">
+      <m.div style={{ y, scale }} className="relative">
         <div className="origin-center scale-[0.7] sm:scale-[0.85] md:scale-[0.95] lg:scale-[1.05]">
-          <HardCoverNotebook coverOpen={coverOpen} />
+          <HardCoverNotebook coverOpen={coverOpen} pageReveal={pageReveal} />
         </div>
       </m.div>
     </div>
@@ -141,8 +159,10 @@ export function HeroNotebookScene({
 
 export function SheetsFanScene({
   sectionRef,
+  product,
 }: {
   sectionRef: RefObject<HTMLElement | null>;
+  product?: { cover: string; accent: string; label: string };
 }) {
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({
@@ -174,7 +194,7 @@ export function SheetsFanScene({
         <div style={{ perspective: 1200, perspectiveOrigin: "15% 40%" }}>
           <m.div style={{ y, rotateY: rot }}>
             <div className="origin-top-left scale-[0.82] sm:scale-[0.95] md:scale-[1.08] xl:scale-[1.18]">
-              <PaperFan spread={spread} />
+              <PaperFan spread={spread} product={product} />
             </div>
           </m.div>
         </div>
@@ -193,7 +213,7 @@ export function BindingPileScene({
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start end", "end start"],
+    offset: ["start center", "end start"],
   });
   const y = useTransform(
     scrollYProgress,
@@ -205,6 +225,9 @@ export function BindingPileScene({
     [0.15, 0.9],
     [reduce ? -6 : -16, reduce ? -6 : 12],
   );
+  
+  // Stage progression: 0 = Print, 0.25 = Cut, 0.5 = Bind, 0.75+ = Finish
+  const stage = useTransform(scrollYProgress, [0.1, 0.3, 0.5, 0.7, 0.9], [0, 1, 2, 3, 4]);
 
   return (
     <div
@@ -215,7 +238,7 @@ export function BindingPileScene({
         <div style={{ perspective: 1400, perspectiveOrigin: "80% 40%" }}>
           <m.div style={{ y, rotateY: rot }}>
             <div className="origin-top-right scale-[0.88] sm:scale-[1] md:scale-[1.12] xl:scale-[1.22]">
-              <BoundStack />
+              <BoundStack stage={stage} />
             </div>
           </m.div>
         </div>
@@ -231,8 +254,10 @@ export function BindingPileScene({
 
 function HardCoverNotebook({
   coverOpen,
+  pageReveal,
 }: {
   coverOpen: MotionValue<number> | number;
+  pageReveal?: MotionValue<number> | number;
 }) {
   return (
     <div
@@ -259,7 +284,7 @@ function HardCoverNotebook({
       />
 
       {/* Inner pages (full card) */}
-      <div
+      <m.div
         style={{
           position: "absolute",
           inset: 0,
@@ -267,6 +292,7 @@ function HardCoverNotebook({
           background: `linear-gradient(180deg, #FFFEFA 0%, ${PAGE} 100%)`,
           boxShadow: "inset 18px 0 30px -18px rgba(0,0,0,0.28)",
           overflow: "hidden",
+          opacity: pageReveal || 1,
         }}
       >
         <div
@@ -279,7 +305,7 @@ function HardCoverNotebook({
             background: `linear-gradient(90deg, ${COVER_DEEP}, ${COVER_BLUE})`,
           }}
         />
-        <div
+        <m.div
           style={{
             position: "absolute",
             left: 44,
@@ -287,9 +313,10 @@ function HardCoverNotebook({
             bottom: 32,
             width: 1,
             background: MARGIN,
+            opacity: pageReveal || 1,
           }}
         />
-        <div
+        <m.div
           style={{
             position: "absolute",
             left: 28,
@@ -298,9 +325,11 @@ function HardCoverNotebook({
             height: 3,
             borderRadius: 1,
             background: "rgba(104,184,72,0.55)",
+            scaleX: pageReveal || 1,
+            transformOrigin: "left center",
           }}
         />
-        <div
+        <m.div
           style={{
             position: "absolute",
             left: 28,
@@ -308,9 +337,10 @@ function HardCoverNotebook({
             top: 52,
             bottom: 28,
             backgroundImage: `repeating-linear-gradient(0deg, transparent 0 17px, ${RULE} 17px 18px)`,
+            opacity: pageReveal || 1,
           }}
         />
-        <div
+        <m.div
           style={{
             position: "absolute",
             left: 28,
@@ -319,9 +349,10 @@ function HardCoverNotebook({
             height: 8,
             borderRadius: 2,
             background: "rgba(0,120,168,0.12)",
+            opacity: pageReveal || 1,
           }}
         />
-      </div>
+      </m.div>
 
       {/* Full cover — hinged on left spine */}
       <m.div
@@ -453,7 +484,13 @@ const FAN = [
   { x0: 14, x1: 68, y: 58, z0: 72, z1: 118, rx: -4, ry: 12, rz0: 6, rz1: 14, tint: "#FAF6EE" },
 ] as const;
 
-function PaperFan({ spread }: { spread: MotionValue<number> }) {
+function PaperFan({ 
+  spread,
+  product,
+}: { 
+  spread: MotionValue<number>;
+  product?: { cover: string; accent: string; label: string };
+}) {
   return (
     <div
       style={{
@@ -484,9 +521,31 @@ function PaperFan({ spread }: { spread: MotionValue<number> }) {
         }}
       >
         {FAN.map((s, i) => (
-          <FanSheet key={i} base={s} spread={spread} index={i} />
+          <FanSheet key={i} base={s} spread={spread} index={i} product={product} />
         ))}
       </div>
+      {product && (
+        <m.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          style={{
+            position: "absolute",
+            left: 56,
+            bottom: 60,
+            fontFamily: "Manrope Variable, Manrope, sans-serif",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: product.accent,
+            zIndex: 10,
+            pointerEvents: "none",
+          }}
+        >
+          {product.label}
+        </m.div>
+      )}
     </div>
   );
 }
@@ -495,14 +554,19 @@ function FanSheet({
   base,
   spread,
   index,
+  product,
 }: {
   base: (typeof FAN)[number];
   spread: MotionValue<number>;
   index: number;
+  product?: { cover: string; accent: string; label: string };
 }) {
   const x = useTransform(spread, [0, 1], [base.x0, base.x1]);
   const z = useTransform(spread, [0, 1], [base.z0, base.z1]);
   const rz = useTransform(spread, [0, 1], [base.rz0, base.rz1]);
+
+  // Use product accent on the front sheet, default for others
+  const accentColor = index === 0 && product ? product.accent : "rgba(0,120,168,0.2)";
 
   return (
     <m.div
@@ -521,14 +585,16 @@ function FanSheet({
         transformStyle: "preserve-3d",
       }}
     >
-      <div
+      <m.div
+        animate={{
+          background: index === 0 && product
+            ? `radial-gradient(circle at 0% 40%, rgba(0,0,0,0.08), transparent 48%), ${product.cover}`
+            : `radial-gradient(circle at 0% 40%, rgba(0,0,0,0.08), transparent 48%), linear-gradient(180deg, #FFFEFA 0%, ${base.tint} 100%)`,
+        }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         style={{
           position: "absolute",
           inset: 0,
-          background: `
-            radial-gradient(circle at 0% 40%, rgba(0,0,0,0.08), transparent 48%),
-            linear-gradient(180deg, #FFFEFA 0%, ${base.tint} 100%)
-          `,
           borderRadius: 4,
           boxShadow:
             "0 0 0 1px rgba(255,255,255,0.5), 0 14px 28px -12px rgba(13,26,46,0.28), 0 0 0 1px rgba(0,120,168,0.08)",
@@ -555,7 +621,11 @@ function FanSheet({
             backgroundImage: `repeating-linear-gradient(0deg, transparent 0 15px, ${RULE} 15px 16px)`,
           }}
         />
-        <div
+        <m.div
+          animate={{
+            background: accentColor,
+          }}
+          transition={{ duration: 0.6 }}
           style={{
             position: "absolute",
             left: 14,
@@ -563,10 +633,9 @@ function FanSheet({
             width: "38%",
             height: 4,
             borderRadius: 1,
-            background: index === 0 ? "rgba(104,184,72,0.5)" : "rgba(0,120,168,0.2)",
           }}
         />
-      </div>
+      </m.div>
     </m.div>
   );
 }
@@ -576,7 +645,7 @@ function FanSheet({
  * (cover + faked page thickness via layered shadows)
  * ───────────────────────────────────────────── */
 
-function BoundStack() {
+function BoundStack({ stage }: { stage: MotionValue<number> }) {
   const books = [
     {
       x: 0,
@@ -616,6 +685,15 @@ function BoundStack() {
     },
   ] as const;
 
+  // Stage 0: Loose sheets (Print)
+  // Stage 1: Trimmed stack (Cut)  
+  // Stage 2: Spine visible (Bind)
+  // Stage 3+: Final bound books (Finish)
+  
+  const stackSpread = useTransform(stage, [0, 1], [32, 0]);
+  const bindingVisible = useTransform(stage, [1.5, 2.5], [0, 1]);
+  const finalAssembly = useTransform(stage, [2.5, 4], [0, 1]);
+
   return (
     <div
       style={{
@@ -635,107 +713,118 @@ function BoundStack() {
             "radial-gradient(ellipse at center, rgba(13,26,46,0.12) 0%, transparent 70%)",
         }}
       />
-      {books.map((b, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            left: b.x,
-            top: b.y,
-            width: b.w,
-            height: b.h,
-            transform: `rotate(${b.rot}deg)`,
-            transformOrigin: "bottom center",
-          }}
-        >
-          {/* Page block / thickness */}
-          <div
+      {books.map((b, i) => {
+        // Offset for print/cut stages
+        const stageOffsetX = useTransform(stackSpread, [0, 32], [0, i * 18]);
+        const stageOffsetY = useTransform(stackSpread, [0, 32], [0, i * -12]);
+        
+        return (
+          <m.div
+            key={i}
             style={{
               position: "absolute",
-              inset: 0,
-              borderRadius: 4,
-              background: `
-                repeating-linear-gradient(
-                  90deg,
-                  #F7F2E8 0px,
-                  #F7F2E8 2px,
-                  #E8E0D0 2px,
-                  #E8E0D0 3px
-                )
-              `,
-              transform: "translate(10px, 8px)",
-              boxShadow: "4px 8px 18px -8px rgba(13,26,46,0.22)",
-            }}
-          />
-          {/* Spine strip */}
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 12,
-              borderRadius: "4px 0 0 4px",
-              background: b.edge,
-              zIndex: 2,
-            }}
-          />
-          {/* Cover */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              borderRadius: 4,
-              background: b.cover,
-              boxShadow:
-                "0 0 0 1px rgba(255,255,255,0.18), 0 12px 28px -14px rgba(13,26,46,0.3)",
-              zIndex: 3,
-              overflow: "hidden",
+              left: b.x,
+              top: b.y,
+              width: b.w,
+              height: b.h,
+              x: stageOffsetX,
+              y: stageOffsetY,
+              transform: `rotate(${b.rot}deg)`,
+              transformOrigin: "bottom center",
             }}
           >
-            <div
+            {/* Page block / thickness - more visible during binding */}
+            <m.div
               style={{
                 position: "absolute",
-                left: 22,
-                right: 16,
-                top: 28,
-                fontFamily: "Syne Variable, Syne, sans-serif",
-                fontWeight: 700,
-                fontSize: 15,
-                letterSpacing: "-0.02em",
-                color: b.ink,
-              }}
-            >
-              Alpine-eco
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                left: 22,
-                top: 52,
-                width: 28,
-                height: 2,
-                background: b.rule,
+                inset: 0,
+                borderRadius: 4,
+                background: `
+                  repeating-linear-gradient(
+                    90deg,
+                    #F7F2E8 0px,
+                    #F7F2E8 2px,
+                    #E8E0D0 2px,
+                    #E8E0D0 3px
+                  )
+                `,
+                transform: "translate(10px, 8px)",
+                boxShadow: "4px 8px 18px -8px rgba(13,26,46,0.22)",
+                opacity: bindingVisible,
               }}
             />
-            <div
+            {/* Spine strip - appears during Bind stage */}
+            <m.div
               style={{
                 position: "absolute",
-                left: 22,
-                bottom: 28,
-                fontFamily: "Manrope Variable, Manrope, sans-serif",
-                fontSize: 9,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: b.ink,
-                opacity: 0.7,
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 12,
+                borderRadius: "4px 0 0 4px",
+                background: b.edge,
+                zIndex: 2,
+                opacity: bindingVisible,
+              }}
+            />
+            {/* Cover */}
+            <m.div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 4,
+                background: b.cover,
+                boxShadow:
+                  "0 0 0 1px rgba(255,255,255,0.18), 0 12px 28px -14px rgba(13,26,46,0.3)",
+                zIndex: 3,
+                overflow: "hidden",
+                opacity: finalAssembly,
               }}
             >
-              {b.label}
-            </div>
-          </div>
-        </div>
-      ))}
+              <div
+                style={{
+                  position: "absolute",
+                  left: 22,
+                  right: 16,
+                  top: 28,
+                  fontFamily: "Syne Variable, Syne, sans-serif",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  letterSpacing: "-0.02em",
+                  color: b.ink,
+                }}
+              >
+                Alpine-eco
+              </div>
+              <div
+                style={{
+                  position: "absolute",
+                  left: 22,
+                  top: 52,
+                  width: 28,
+                  height: 2,
+                  background: b.rule,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  left: 22,
+                  bottom: 28,
+                  fontFamily: "Manrope Variable, Manrope, sans-serif",
+                  fontSize: 9,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: b.ink,
+                  opacity: 0.7,
+                }}
+              >
+                {b.label}
+              </div>
+            </m.div>
+          </m.div>
+        );
+      })}
     </div>
   );
 }

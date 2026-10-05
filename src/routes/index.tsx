@@ -17,7 +17,9 @@ import {
 
 import { BlurText } from "@/components/BlurText";
 import { Magnetic } from "@/components/Magnetic";
+import { QuoteForm } from "@/components/QuoteForm";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { SmoothScroll } from "@/components/SmoothScroll";
 import { SpotlightTilt } from "@/components/SpotlightTilt";
 
 export const Route = createFileRoute("/")({
@@ -40,6 +42,31 @@ const NAV_LINKS = [
   ["work", "How We Work"],
   ["contact", "Contact"],
 ] as const;
+
+type ProductType = "notebooks" | "diaries" | "journals" | "corporate";
+
+const PRODUCT_COLORS = {
+  notebooks: {
+    cover: "linear-gradient(160deg, #1A8FBE 0%, #0078A8 48%, #08648F 100%)",
+    accent: "#0078A8",
+    label: "Notebooks",
+  },
+  diaries: {
+    cover: "linear-gradient(160deg, #88C868 0%, #68B848 50%, #4F8F2E 100%)",
+    accent: "#68B848",
+    label: "Diaries",
+  },
+  journals: {
+    cover: "linear-gradient(160deg, #FFFEFA 0%, #F0EAE0 100%)",
+    accent: "#0078A8",
+    label: "Journals",
+  },
+  corporate: {
+    cover: "linear-gradient(160deg, #EC008C 0%, #C8007A 50%, #A00060 100%)",
+    accent: "#EC008C",
+    label: "Corporate",
+  },
+} as const;
 
 const LazyMobileNavSheet = lazy(() => import("@/components/MobileNavSheet"));
 const LazyHeroNotebook = lazy(() =>
@@ -213,9 +240,9 @@ function Logo({
       aria-label="Alpine-eco Notebooks & Diaries — home"
     >
       <picture>
-        <source srcSet="/alpine-eco-logo.webp?v=3" type="image/webp" />
+        <source srcSet="/alpine-eco-logo-opt.webp?v=4" type="image/webp" />
         <img
-          src="/alpine-eco-logo.png?v=3"
+          src="/alpine-eco-logo-opt.png?v=4"
           alt="Alpine-eco Notebooks & Diaries"
           className={sizeClass}
           width={360}
@@ -425,23 +452,25 @@ function Hero({
     <section
       ref={sectionRef}
       id="hero"
-      className="hero-band crop-marks relative min-h-[100dvh] scroll-mt-24 overflow-x-clip pt-28 pb-40 sm:pb-24 lg:pt-32 lg:pb-32"
+      className="hero-band crop-marks relative scroll-mt-24 overflow-x-clip"
+      style={{ minHeight: reduce ? "100dvh" : "200dvh" }}
     >
-      <div className="hero-veil" aria-hidden />
-      <div className="hero-aurora" aria-hidden />
-      {showScene && (
-        <Suspense fallback={null}>
-          <LazyHeroNotebook sectionRef={sectionRef} />
-        </Suspense>
-      )}
+      <div className="sticky top-0 min-h-[100dvh] overflow-x-clip pt-28 pb-40 sm:pb-24 lg:pt-32 lg:pb-32">
+        <div className="hero-veil" aria-hidden />
+        <div className="hero-aurora" aria-hidden />
+        {showScene && (
+          <Suspense fallback={null}>
+            <LazyHeroNotebook sectionRef={sectionRef} />
+          </Suspense>
+        )}
 
-      <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 sm:px-8 lg:grid-cols-12 lg:px-12">
-        <m.div
-          initial={reduce ? false : "hidden"}
-          animate="show"
-          variants={stagger}
-          className="lg:col-span-5 xl:col-span-6"
-        >
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 sm:px-8 lg:grid-cols-12 lg:px-12">
+          <m.div
+            initial={reduce ? false : "hidden"}
+            animate="show"
+            variants={stagger}
+            className="lg:col-span-5 xl:col-span-6"
+          >
           <m.div variants={variants} className="flex flex-col items-start gap-4">
             <Logo size="hero" />
             <Eyebrow>Printing &amp; Book-Binding · Johannesburg</Eyebrow>
@@ -506,7 +535,8 @@ function Hero({
           <m.div variants={variants} className="mt-12">
             <ColorBar />
           </m.div>
-        </m.div>
+        </div>
+      </div>
       </div>
     </section>
   );
@@ -647,32 +677,59 @@ function Story() {
   );
 }
 
-function WhatWePrint() {
+function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductType) => void }) {
   const featured = {
     n: "01",
     title: "Notebooks",
     desc: "Soft and hard cover, ruled or dot-grid — sized for a desk, a bag, or a branded run. Printed and bound in Stafford.",
+    id: "notebooks" as ProductType,
   };
   const supporting = [
     {
       n: "02",
       title: "Diaries",
       desc: "Daily and weekly planners with dated pages, printed and bound for a full year of use.",
+      id: "diaries" as ProductType,
     },
     {
       n: "03",
       title: "Journals",
       desc: "Unlined and lightly ruled pages for notes, sketches and long-form writing.",
+      id: "journals" as ProductType,
     },
     {
       n: "04",
       title: "Corporate & Custom",
       desc: "Branded diaries and notebooks for companies, schools, and year-end gifts.",
+      id: "corporate" as ProductType,
     },
   ] as const;
 
   const variants = useRevealVariants();
   const stagger = useStaggerParent();
+  const cardRefs = useRef<Map<ProductType, HTMLElement>>(new Map());
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.4) {
+            const id = entry.target.getAttribute("data-product-id") as ProductType;
+            if (id) onProductChange(id);
+          }
+        });
+      },
+      { threshold: [0.4, 0.6], rootMargin: "-20% 0px" }
+    );
+
+    cardRefs.current.forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [onProductChange]);
 
   return (
     <Section id="print" withCrop>
@@ -754,6 +811,10 @@ function WhatWePrint() {
         <m.div
           variants={variants}
           className="md:col-span-7 lg:col-span-7"
+          ref={(el) => {
+            if (el) cardRefs.current.set(featured.id, el);
+          }}
+          data-product-id={featured.id}
         >
           <SpotlightTilt
             href="#contact"
@@ -793,7 +854,14 @@ function WhatWePrint() {
 
         <div className="flex flex-col gap-4 md:col-span-5">
           {supporting.map((item) => (
-            <m.div key={item.title} variants={variants}>
+            <m.div 
+              key={item.title} 
+              variants={variants}
+              ref={(el) => {
+                if (el) cardRefs.current.set(item.id, el);
+              }}
+              data-product-id={item.id}
+            >
               <SpotlightTilt
                 href="#contact"
                 onClick={(e) => {
@@ -988,23 +1056,29 @@ function CTA() {
         </div>
         <m.div
           variants={variants}
-          className="flex flex-col justify-end gap-6 lg:col-span-5 lg:col-start-8"
+          className="lg:col-span-5 lg:col-start-8"
         >
-          <div className="flex flex-wrap gap-3">
-            <Magnetic>
-              <a href={`mailto:${EMAIL}`} className="btn-primary">
-                Email us
-              </a>
-            </Magnetic>
-            <Magnetic strength={0.22}>
-              <a href={`tel:${PHONE_TEL}`} className="btn-ghost">
-                Call {PHONE_DISPLAY}
-              </a>
-            </Magnetic>
+          <QuoteForm />
+          <div className="mt-8 border-t border-[rgba(0,120,168,0.14)] pt-8">
+            <p className="mb-4 text-sm font-medium uppercase tracking-wide text-[color:var(--color-ink-2)]">
+              Or contact us directly
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Magnetic>
+                <a href={`mailto:${EMAIL}`} className="btn-ghost">
+                  Email us
+                </a>
+              </Magnetic>
+              <Magnetic strength={0.22}>
+                <a href={`tel:${PHONE_TEL}`} className="btn-ghost">
+                  Call {PHONE_DISPLAY}
+                </a>
+              </Magnetic>
+            </div>
+            <address className="mt-6 not-italic text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
+              {ADDRESS}
+            </address>
           </div>
-          <address className="not-italic text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
-            {ADDRESS}
-          </address>
         </m.div>
       </m.div>
     </Section>
@@ -1091,29 +1165,31 @@ function Index() {
   const workRef = useRef<HTMLElement | null>(null);
   const { showHero, showRest } = useDeferredScenes();
   const heroNear = useNearViewport(heroRef, "30% 0px");
+  const [activeProduct, setActiveProduct] = useState<ProductType>("notebooks");
 
   return (
-    <LazyMotion features={domAnimation}>
-      <a href="#main-content" className="skip-link">
-        Skip to content
-      </a>
-      <div className="site-backdrop" aria-hidden />
-      {/* Desktop-only paper grain — CSS already hides below 768px */}
-      <div className="site-grain hidden md:block" aria-hidden />
-      <div className="relative z-10 min-h-[100dvh] overflow-x-clip bg-transparent">
-        <RulerProgress />
-        <Nav />
-        <main id="main-content">
+    <SmoothScroll>
+      <LazyMotion features={domAnimation}>
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
+        <div className="site-backdrop" aria-hidden />
+        {/* Desktop-only paper grain — CSS already hides below 768px */}
+        <div className="site-grain hidden md:block" aria-hidden />
+        <div className="relative z-10 min-h-[100dvh] overflow-x-clip bg-transparent">
+          <RulerProgress />
+          <Nav />
+          <main id="main-content">
           <Hero sectionRef={heroRef} showScene={showHero && heroNear} />
           <div ref={sheetsRef} className="scene-window-left relative">
             {showRest && (
               <Suspense fallback={null}>
-                <LazySheetsFan sectionRef={sheetsRef} />
+                <LazySheetsFan sectionRef={sheetsRef} product={PRODUCT_COLORS[activeProduct]} />
               </Suspense>
             )}
             <div className="relative z-10">
               <Story />
-              <WhatWePrint />
+              <WhatWePrint onProductChange={setActiveProduct} />
             </div>
           </div>
           <HowWeWork sectionRef={workRef} showScene={showRest} />
@@ -1122,5 +1198,6 @@ function Index() {
         <Footer />
       </div>
     </LazyMotion>
+    </SmoothScroll>
   );
 }
