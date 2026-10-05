@@ -535,7 +535,7 @@ function Hero({
           <m.div variants={variants} className="mt-12">
             <ColorBar />
           </m.div>
-        </div>
+        </m.div>
       </div>
       </div>
     </section>
