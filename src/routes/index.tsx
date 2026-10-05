@@ -41,6 +41,31 @@ const NAV_LINKS = [
   ["contact", "Contact"],
 ] as const;
 
+type ProductType = "notebooks" | "diaries" | "journals" | "corporate";
+
+const PRODUCT_COLORS = {
+  notebooks: {
+    cover: "linear-gradient(160deg, #1A8FBE 0%, #0078A8 48%, #08648F 100%)",
+    accent: "#0078A8",
+    label: "Notebooks",
+  },
+  diaries: {
+    cover: "linear-gradient(160deg, #88C868 0%, #68B848 50%, #4F8F2E 100%)",
+    accent: "#68B848",
+    label: "Diaries",
+  },
+  journals: {
+    cover: "linear-gradient(160deg, #FFFEFA 0%, #F0EAE0 100%)",
+    accent: "#0078A8",
+    label: "Journals",
+  },
+  corporate: {
+    cover: "linear-gradient(160deg, #EC008C 0%, #C8007A 50%, #A00060 100%)",
+    accent: "#EC008C",
+    label: "Corporate",
+  },
+} as const;
+
 const LazyMobileNavSheet = lazy(() => import("@/components/MobileNavSheet"));
 const LazyHeroNotebook = lazy(() =>
   import("@/components/MotionLayer").then((mod) => ({
@@ -650,32 +675,59 @@ function Story() {
   );
 }
 
-function WhatWePrint() {
+function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductType) => void }) {
   const featured = {
     n: "01",
     title: "Notebooks",
     desc: "Soft and hard cover, ruled or dot-grid — sized for a desk, a bag, or a branded run. Printed and bound in Stafford.",
+    id: "notebooks" as ProductType,
   };
   const supporting = [
     {
       n: "02",
       title: "Diaries",
       desc: "Daily and weekly planners with dated pages, printed and bound for a full year of use.",
+      id: "diaries" as ProductType,
     },
     {
       n: "03",
       title: "Journals",
       desc: "Unlined and lightly ruled pages for notes, sketches and long-form writing.",
+      id: "journals" as ProductType,
     },
     {
       n: "04",
       title: "Corporate & Custom",
       desc: "Branded diaries and notebooks for companies, schools, and year-end gifts.",
+      id: "corporate" as ProductType,
     },
   ] as const;
 
   const variants = useRevealVariants();
   const stagger = useStaggerParent();
+  const cardRefs = useRef<Map<ProductType, HTMLElement>>(new Map());
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.4) {
+            const id = entry.target.getAttribute("data-product-id") as ProductType;
+            if (id) onProductChange(id);
+          }
+        });
+      },
+      { threshold: [0.4, 0.6], rootMargin: "-20% 0px" }
+    );
+
+    cardRefs.current.forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [onProductChange]);
 
   return (
     <Section id="print" withCrop>
@@ -757,6 +809,10 @@ function WhatWePrint() {
         <m.div
           variants={variants}
           className="md:col-span-7 lg:col-span-7"
+          ref={(el) => {
+            if (el) cardRefs.current.set(featured.id, el);
+          }}
+          data-product-id={featured.id}
         >
           <SpotlightTilt
             href="#contact"
@@ -796,7 +852,14 @@ function WhatWePrint() {
 
         <div className="flex flex-col gap-4 md:col-span-5">
           {supporting.map((item) => (
-            <m.div key={item.title} variants={variants}>
+            <m.div 
+              key={item.title} 
+              variants={variants}
+              ref={(el) => {
+                if (el) cardRefs.current.set(item.id, el);
+              }}
+              data-product-id={item.id}
+            >
               <SpotlightTilt
                 href="#contact"
                 onClick={(e) => {
@@ -1094,6 +1157,7 @@ function Index() {
   const workRef = useRef<HTMLElement | null>(null);
   const { showHero, showRest } = useDeferredScenes();
   const heroNear = useNearViewport(heroRef, "30% 0px");
+  const [activeProduct, setActiveProduct] = useState<ProductType>("notebooks");
 
   return (
     <LazyMotion features={domAnimation}>
@@ -1111,12 +1175,12 @@ function Index() {
           <div ref={sheetsRef} className="scene-window-left relative">
             {showRest && (
               <Suspense fallback={null}>
-                <LazySheetsFan sectionRef={sheetsRef} />
+                <LazySheetsFan sectionRef={sheetsRef} product={PRODUCT_COLORS[activeProduct]} />
               </Suspense>
             )}
             <div className="relative z-10">
               <Story />
-              <WhatWePrint />
+              <WhatWePrint onProductChange={setActiveProduct} />
             </div>
           </div>
           <HowWeWork sectionRef={workRef} showScene={showRest} />

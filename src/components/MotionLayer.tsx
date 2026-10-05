@@ -159,8 +159,10 @@ export function HeroNotebookScene({
 
 export function SheetsFanScene({
   sectionRef,
+  product,
 }: {
   sectionRef: RefObject<HTMLElement | null>;
+  product?: { cover: string; accent: string; label: string };
 }) {
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({
@@ -192,7 +194,7 @@ export function SheetsFanScene({
         <div style={{ perspective: 1200, perspectiveOrigin: "15% 40%" }}>
           <m.div style={{ y, rotateY: rot }}>
             <div className="origin-top-left scale-[0.82] sm:scale-[0.95] md:scale-[1.08] xl:scale-[1.18]">
-              <PaperFan spread={spread} />
+              <PaperFan spread={spread} product={product} />
             </div>
           </m.div>
         </div>
@@ -479,7 +481,13 @@ const FAN = [
   { x0: 14, x1: 68, y: 58, z0: 72, z1: 118, rx: -4, ry: 12, rz0: 6, rz1: 14, tint: "#FAF6EE" },
 ] as const;
 
-function PaperFan({ spread }: { spread: MotionValue<number> }) {
+function PaperFan({ 
+  spread,
+  product,
+}: { 
+  spread: MotionValue<number>;
+  product?: { cover: string; accent: string; label: string };
+}) {
   return (
     <div
       style={{
@@ -510,9 +518,31 @@ function PaperFan({ spread }: { spread: MotionValue<number> }) {
         }}
       >
         {FAN.map((s, i) => (
-          <FanSheet key={i} base={s} spread={spread} index={i} />
+          <FanSheet key={i} base={s} spread={spread} index={i} product={product} />
         ))}
       </div>
+      {product && (
+        <m.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          style={{
+            position: "absolute",
+            left: 56,
+            bottom: 60,
+            fontFamily: "Manrope Variable, Manrope, sans-serif",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: product.accent,
+            zIndex: 10,
+            pointerEvents: "none",
+          }}
+        >
+          {product.label}
+        </m.div>
+      )}
     </div>
   );
 }
@@ -521,14 +551,19 @@ function FanSheet({
   base,
   spread,
   index,
+  product,
 }: {
   base: (typeof FAN)[number];
   spread: MotionValue<number>;
   index: number;
+  product?: { cover: string; accent: string; label: string };
 }) {
   const x = useTransform(spread, [0, 1], [base.x0, base.x1]);
   const z = useTransform(spread, [0, 1], [base.z0, base.z1]);
   const rz = useTransform(spread, [0, 1], [base.rz0, base.rz1]);
+
+  // Use product accent on the front sheet, default for others
+  const accentColor = index === 0 && product ? product.accent : "rgba(0,120,168,0.2)";
 
   return (
     <m.div
@@ -547,14 +582,16 @@ function FanSheet({
         transformStyle: "preserve-3d",
       }}
     >
-      <div
+      <m.div
+        animate={{
+          background: index === 0 && product
+            ? `radial-gradient(circle at 0% 40%, rgba(0,0,0,0.08), transparent 48%), ${product.cover}`
+            : `radial-gradient(circle at 0% 40%, rgba(0,0,0,0.08), transparent 48%), linear-gradient(180deg, #FFFEFA 0%, ${base.tint} 100%)`,
+        }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         style={{
           position: "absolute",
           inset: 0,
-          background: `
-            radial-gradient(circle at 0% 40%, rgba(0,0,0,0.08), transparent 48%),
-            linear-gradient(180deg, #FFFEFA 0%, ${base.tint} 100%)
-          `,
           borderRadius: 4,
           boxShadow:
             "0 0 0 1px rgba(255,255,255,0.5), 0 14px 28px -12px rgba(13,26,46,0.28), 0 0 0 1px rgba(0,120,168,0.08)",
@@ -581,7 +618,11 @@ function FanSheet({
             backgroundImage: `repeating-linear-gradient(0deg, transparent 0 15px, ${RULE} 15px 16px)`,
           }}
         />
-        <div
+        <m.div
+          animate={{
+            background: accentColor,
+          }}
+          transition={{ duration: 0.6 }}
           style={{
             position: "absolute",
             left: 14,
@@ -589,10 +630,9 @@ function FanSheet({
             width: "38%",
             height: 4,
             borderRadius: 1,
-            background: index === 0 ? "rgba(104,184,72,0.5)" : "rgba(0,120,168,0.2)",
           }}
         />
-      </div>
+      </m.div>
     </m.div>
   );
 }
