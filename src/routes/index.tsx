@@ -132,15 +132,15 @@ function useDeferredScenes() {
       const next = resolveMotionMode();
       setMode(next);
       if (next !== "full") return;
-      // Wait until the browser is quiet — never mid-scroll hitch from mounting 3D.
+      // Reduced delay: mount hero scene sooner to start animations earlier
       cancelIdle = scheduleIdle(() => {
         if (cancelled) return;
         setHeroReady(true);
-        // Static scenes are cheap — mount soon after hero, don't wait ~2s.
+        // Static scenes are cheap — mount soon after hero
         cancelRest = scheduleIdle(() => {
           if (!cancelled) setRestReady(true);
-        }, 200);
-      }, 500);
+        }, 150);
+      }, 250);
     };
 
     if (document.readyState === "complete") {
@@ -471,72 +471,72 @@ function Hero({
             variants={stagger}
             className="lg:col-span-5 xl:col-span-6"
           >
-          <m.div variants={variants} className="flex flex-col items-start gap-4">
-            <Logo size="hero" />
-            <Eyebrow>Printing &amp; Book-Binding · Johannesburg</Eyebrow>
-          </m.div>
+            <m.div variants={variants} className="flex flex-col items-start gap-4">
+              <Logo size="hero" />
+              <Eyebrow>Printing &amp; Book-Binding · Johannesburg</Eyebrow>
+            </m.div>
 
-          <div className="mt-6">
-            <h1 className="display-title text-[color:var(--color-ink)]">
-              <BlurText
-                as="span"
-                className="inline"
-                text="Print with"
-                delay={0.1}
-                stagger={0.07}
-              />{" "}
-              <m.span
-                className="ink-accent inline-block text-[color:var(--color-royal)]"
-                initial={reduce ? false : { opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: reduce ? 0 : 0.35,
-                  delay: reduce ? 0 : 0.35,
-                  ease: MOTION_EASE,
-                }}
-              >
-                Alpine-eco.
-              </m.span>
-            </h1>
-          </div>
+            <div className="mt-6">
+              <h1 className="display-title text-[color:var(--color-ink)]">
+                <BlurText
+                  as="span"
+                  className="inline"
+                  text="Print with"
+                  delay={0.1}
+                  stagger={0.07}
+                />{" "}
+                <m.span
+                  className="ink-accent inline-block text-[color:var(--color-royal)]"
+                  initial={reduce ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: reduce ? 0 : 0.35,
+                    delay: reduce ? 0 : 0.35,
+                    ease: MOTION_EASE,
+                  }}
+                >
+                  Alpine-eco.
+                </m.span>
+              </h1>
+            </div>
 
-          <m.p
-            variants={variants}
-            className="mt-8 max-w-xl text-[clamp(1.05rem,2.2vw,1.2rem)] leading-relaxed text-[color:var(--color-body)]"
-          >
-            Notebooks, diaries and journals, printed and bound under one roof in Stafford.
-          </m.p>
-          <m.div variants={variants} className="mt-10 flex flex-wrap gap-3">
-            <Magnetic>
-              <a
-                href="#contact"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollTo("contact");
-                }}
-                className="btn-primary"
-              >
-                Request a quotation
-              </a>
-            </Magnetic>
-            <Magnetic strength={0.22}>
-              <a
-                href="#print"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollTo("print");
-                }}
-                className="btn-ghost"
-              >
-                The range
-              </a>
-            </Magnetic>
-          </m.div>
-          <m.div variants={variants} className="mt-12">
-            <ColorBar />
+            <m.p
+              variants={variants}
+              className="mt-8 max-w-xl text-[clamp(1.05rem,2.2vw,1.2rem)] leading-relaxed text-[color:var(--color-body)]"
+            >
+              Notebooks, diaries and journals, printed and bound under one roof in Stafford.
+            </m.p>
+            <m.div variants={variants} className="mt-10 flex flex-wrap gap-3">
+              <Magnetic>
+                <a
+                  href="#contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollTo("contact");
+                  }}
+                  className="btn-primary"
+                >
+                  Request a quotation
+                </a>
+              </Magnetic>
+              <Magnetic strength={0.22}>
+                <a
+                  href="#print"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollTo("print");
+                  }}
+                  className="btn-ghost"
+                >
+                  The range
+                </a>
+              </Magnetic>
+            </m.div>
+            <m.div variants={variants} className="mt-12">
+              <ColorBar />
+            </m.div>
           </m.div>
         </m.div>
-      </div>
       </div>
     </section>
   );
