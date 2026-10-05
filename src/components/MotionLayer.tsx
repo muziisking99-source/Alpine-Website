@@ -213,7 +213,7 @@ export function BindingPileScene({
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start end", "end start"],
+    offset: ["start center", "end start"],
   });
   const y = useTransform(
     scrollYProgress,
@@ -225,6 +225,9 @@ export function BindingPileScene({
     [0.15, 0.9],
     [reduce ? -6 : -16, reduce ? -6 : 12],
   );
+  
+  // Stage progression: 0 = Print, 0.25 = Cut, 0.5 = Bind, 0.75+ = Finish
+  const stage = useTransform(scrollYProgress, [0.1, 0.3, 0.5, 0.7, 0.9], [0, 1, 2, 3, 4]);
 
   return (
     <div
@@ -235,7 +238,7 @@ export function BindingPileScene({
         <div style={{ perspective: 1400, perspectiveOrigin: "80% 40%" }}>
           <m.div style={{ y, rotateY: rot }}>
             <div className="origin-top-right scale-[0.88] sm:scale-[1] md:scale-[1.12] xl:scale-[1.22]">
-              <BoundStack />
+              <BoundStack stage={stage} />
             </div>
           </m.div>
         </div>
@@ -642,7 +645,7 @@ function FanSheet({
  * (cover + faked page thickness via layered shadows)
  * ───────────────────────────────────────────── */
 
-function BoundStack() {
+function BoundStack({ stage }: { stage: MotionValue<number> }) {
   const books = [
     {
       x: 0,
@@ -682,6 +685,15 @@ function BoundStack() {
     },
   ] as const;
 
+  // Stage 0: Loose sheets (Print)
+  // Stage 1: Trimmed stack (Cut)  
+  // Stage 2: Spine visible (Bind)
+  // Stage 3+: Final bound books (Finish)
+  
+  const stackSpread = useTransform(stage, [0, 1], [32, 0]);
+  const bindingVisible = useTransform(stage, [1.5, 2.5], [0, 1]);
+  const finalAssembly = useTransform(stage, [2.5, 4], [0, 1]);
+
   return (
     <div
       style={{
@@ -701,107 +713,118 @@ function BoundStack() {
             "radial-gradient(ellipse at center, rgba(13,26,46,0.12) 0%, transparent 70%)",
         }}
       />
-      {books.map((b, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            left: b.x,
-            top: b.y,
-            width: b.w,
-            height: b.h,
-            transform: `rotate(${b.rot}deg)`,
-            transformOrigin: "bottom center",
-          }}
-        >
-          {/* Page block / thickness */}
-          <div
+      {books.map((b, i) => {
+        // Offset for print/cut stages
+        const stageOffsetX = useTransform(stackSpread, [0, 32], [0, i * 18]);
+        const stageOffsetY = useTransform(stackSpread, [0, 32], [0, i * -12]);
+        
+        return (
+          <m.div
+            key={i}
             style={{
               position: "absolute",
-              inset: 0,
-              borderRadius: 4,
-              background: `
-                repeating-linear-gradient(
-                  90deg,
-                  #F7F2E8 0px,
-                  #F7F2E8 2px,
-                  #E8E0D0 2px,
-                  #E8E0D0 3px
-                )
-              `,
-              transform: "translate(10px, 8px)",
-              boxShadow: "4px 8px 18px -8px rgba(13,26,46,0.22)",
-            }}
-          />
-          {/* Spine strip */}
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 12,
-              borderRadius: "4px 0 0 4px",
-              background: b.edge,
-              zIndex: 2,
-            }}
-          />
-          {/* Cover */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              borderRadius: 4,
-              background: b.cover,
-              boxShadow:
-                "0 0 0 1px rgba(255,255,255,0.18), 0 12px 28px -14px rgba(13,26,46,0.3)",
-              zIndex: 3,
-              overflow: "hidden",
+              left: b.x,
+              top: b.y,
+              width: b.w,
+              height: b.h,
+              x: stageOffsetX,
+              y: stageOffsetY,
+              transform: `rotate(${b.rot}deg)`,
+              transformOrigin: "bottom center",
             }}
           >
-            <div
+            {/* Page block / thickness - more visible during binding */}
+            <m.div
               style={{
                 position: "absolute",
-                left: 22,
-                right: 16,
-                top: 28,
-                fontFamily: "Syne Variable, Syne, sans-serif",
-                fontWeight: 700,
-                fontSize: 15,
-                letterSpacing: "-0.02em",
-                color: b.ink,
-              }}
-            >
-              Alpine-eco
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                left: 22,
-                top: 52,
-                width: 28,
-                height: 2,
-                background: b.rule,
+                inset: 0,
+                borderRadius: 4,
+                background: `
+                  repeating-linear-gradient(
+                    90deg,
+                    #F7F2E8 0px,
+                    #F7F2E8 2px,
+                    #E8E0D0 2px,
+                    #E8E0D0 3px
+                  )
+                `,
+                transform: "translate(10px, 8px)",
+                boxShadow: "4px 8px 18px -8px rgba(13,26,46,0.22)",
+                opacity: bindingVisible,
               }}
             />
-            <div
+            {/* Spine strip - appears during Bind stage */}
+            <m.div
               style={{
                 position: "absolute",
-                left: 22,
-                bottom: 28,
-                fontFamily: "Manrope Variable, Manrope, sans-serif",
-                fontSize: 9,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: b.ink,
-                opacity: 0.7,
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 12,
+                borderRadius: "4px 0 0 4px",
+                background: b.edge,
+                zIndex: 2,
+                opacity: bindingVisible,
+              }}
+            />
+            {/* Cover */}
+            <m.div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: 4,
+                background: b.cover,
+                boxShadow:
+                  "0 0 0 1px rgba(255,255,255,0.18), 0 12px 28px -14px rgba(13,26,46,0.3)",
+                zIndex: 3,
+                overflow: "hidden",
+                opacity: finalAssembly,
               }}
             >
-              {b.label}
-            </div>
-          </div>
-        </div>
-      ))}
+              <div
+                style={{
+                  position: "absolute",
+                  left: 22,
+                  right: 16,
+                  top: 28,
+                  fontFamily: "Syne Variable, Syne, sans-serif",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  letterSpacing: "-0.02em",
+                  color: b.ink,
+                }}
+              >
+                Alpine-eco
+              </div>
+              <div
+                style={{
+                  position: "absolute",
+                  left: 22,
+                  top: 52,
+                  width: 28,
+                  height: 2,
+                  background: b.rule,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  left: 22,
+                  bottom: 28,
+                  fontFamily: "Manrope Variable, Manrope, sans-serif",
+                  fontSize: 9,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: b.ink,
+                  opacity: 0.7,
+                }}
+              >
+                {b.label}
+              </div>
+            </m.div>
+          </m.div>
+        );
+      })}
     </div>
   );
 }
