@@ -111,13 +111,31 @@ export function HeroNotebookScene({
     offset: ["start start", "end start"],
   });
 
-  // One axis of motion only — Chrome stays smoother with fewer scroll bindings.
+  // Staged cinematic beats: closed → crack → reveal pages → pull-back
+  // Each stage gets its own scroll range for readability
   const coverOpen = useTransform(
     scrollYProgress,
-    [0, 0.35, 1],
-    reduce ? [-22, -22, -22] : [-18, -55, -100],
+    [0, 0.15, 0.35, 0.65, 1],
+    reduce ? [-22, -22, -22, -22, -22] : [-18, -28, -65, -88, -95],
   );
-  const y = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -16]);
+  
+  const pageReveal = useTransform(
+    scrollYProgress,
+    [0, 0.25, 0.5, 1],
+    [0, 0, 1, 1],
+  );
+  
+  const y = useTransform(
+    scrollYProgress, 
+    [0, 0.7, 1], 
+    [0, reduce ? 0 : -8, reduce ? 0 : -20]
+  );
+
+  const scale = useTransform(
+    scrollYProgress,
+    [0, 0.4, 0.8, 1],
+    [1, 1.04, 0.98, 0.96],
+  );
 
   return (
     <div
@@ -128,9 +146,9 @@ export function HeroNotebookScene({
         perspectiveOrigin: "40% 45%",
       }}
     >
-      <m.div style={{ y }} className="relative">
+      <m.div style={{ y, scale }} className="relative">
         <div className="origin-center scale-[0.7] sm:scale-[0.85] md:scale-[0.95] lg:scale-[1.05]">
-          <HardCoverNotebook coverOpen={coverOpen} />
+          <HardCoverNotebook coverOpen={coverOpen} pageReveal={pageReveal} />
         </div>
       </m.div>
     </div>
@@ -231,8 +249,10 @@ export function BindingPileScene({
 
 function HardCoverNotebook({
   coverOpen,
+  pageReveal,
 }: {
   coverOpen: MotionValue<number> | number;
+  pageReveal?: MotionValue<number> | number;
 }) {
   return (
     <div
@@ -259,7 +279,7 @@ function HardCoverNotebook({
       />
 
       {/* Inner pages (full card) */}
-      <div
+      <m.div
         style={{
           position: "absolute",
           inset: 0,
@@ -267,6 +287,7 @@ function HardCoverNotebook({
           background: `linear-gradient(180deg, #FFFEFA 0%, ${PAGE} 100%)`,
           boxShadow: "inset 18px 0 30px -18px rgba(0,0,0,0.28)",
           overflow: "hidden",
+          opacity: pageReveal || 1,
         }}
       >
         <div
@@ -279,7 +300,7 @@ function HardCoverNotebook({
             background: `linear-gradient(90deg, ${COVER_DEEP}, ${COVER_BLUE})`,
           }}
         />
-        <div
+        <m.div
           style={{
             position: "absolute",
             left: 44,
@@ -287,9 +308,10 @@ function HardCoverNotebook({
             bottom: 32,
             width: 1,
             background: MARGIN,
+            opacity: pageReveal || 1,
           }}
         />
-        <div
+        <m.div
           style={{
             position: "absolute",
             left: 28,
@@ -298,9 +320,11 @@ function HardCoverNotebook({
             height: 3,
             borderRadius: 1,
             background: "rgba(104,184,72,0.55)",
+            scaleX: pageReveal || 1,
+            transformOrigin: "left center",
           }}
         />
-        <div
+        <m.div
           style={{
             position: "absolute",
             left: 28,
@@ -308,9 +332,10 @@ function HardCoverNotebook({
             top: 52,
             bottom: 28,
             backgroundImage: `repeating-linear-gradient(0deg, transparent 0 17px, ${RULE} 17px 18px)`,
+            opacity: pageReveal || 1,
           }}
         />
-        <div
+        <m.div
           style={{
             position: "absolute",
             left: 28,
@@ -319,9 +344,10 @@ function HardCoverNotebook({
             height: 8,
             borderRadius: 2,
             background: "rgba(0,120,168,0.12)",
+            opacity: pageReveal || 1,
           }}
         />
-      </div>
+      </m.div>
 
       {/* Full cover — hinged on left spine */}
       <m.div

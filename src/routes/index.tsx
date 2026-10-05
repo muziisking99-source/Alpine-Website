@@ -425,23 +425,25 @@ function Hero({
     <section
       ref={sectionRef}
       id="hero"
-      className="hero-band crop-marks relative min-h-[100dvh] scroll-mt-24 overflow-x-clip pt-28 pb-40 sm:pb-24 lg:pt-32 lg:pb-32"
+      className="hero-band crop-marks relative scroll-mt-24 overflow-x-clip"
+      style={{ minHeight: reduce ? "100dvh" : "200dvh" }}
     >
-      <div className="hero-veil" aria-hidden />
-      <div className="hero-aurora" aria-hidden />
-      {showScene && (
-        <Suspense fallback={null}>
-          <LazyHeroNotebook sectionRef={sectionRef} />
-        </Suspense>
-      )}
+      <div className="sticky top-0 min-h-[100dvh] overflow-x-clip pt-28 pb-40 sm:pb-24 lg:pt-32 lg:pb-32">
+        <div className="hero-veil" aria-hidden />
+        <div className="hero-aurora" aria-hidden />
+        {showScene && (
+          <Suspense fallback={null}>
+            <LazyHeroNotebook sectionRef={sectionRef} />
+          </Suspense>
+        )}
 
-      <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 sm:px-8 lg:grid-cols-12 lg:px-12">
-        <m.div
-          initial={reduce ? false : "hidden"}
-          animate="show"
-          variants={stagger}
-          className="lg:col-span-5 xl:col-span-6"
-        >
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 sm:px-8 lg:grid-cols-12 lg:px-12">
+          <m.div
+            initial={reduce ? false : "hidden"}
+            animate="show"
+            variants={stagger}
+            className="lg:col-span-5 xl:col-span-6"
+          >
           <m.div variants={variants} className="flex flex-col items-start gap-4">
             <Logo size="hero" />
             <Eyebrow>Printing &amp; Book-Binding · Johannesburg</Eyebrow>
@@ -506,7 +508,8 @@ function Hero({
           <m.div variants={variants} className="mt-12">
             <ColorBar />
           </m.div>
-        </m.div>
+        </div>
+      </div>
       </div>
     </section>
   );
