@@ -17,6 +17,7 @@ import {
 
 import { BlurText } from "@/components/BlurText";
 import { Magnetic } from "@/components/Magnetic";
+import { QuoteForm } from "@/components/QuoteForm";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { SpotlightTilt } from "@/components/SpotlightTilt";
@@ -1055,23 +1056,29 @@ function CTA() {
         </div>
         <m.div
           variants={variants}
-          className="flex flex-col justify-end gap-6 lg:col-span-5 lg:col-start-8"
+          className="lg:col-span-5 lg:col-start-8"
         >
-          <div className="flex flex-wrap gap-3">
-            <Magnetic>
-              <a href={`mailto:${EMAIL}`} className="btn-primary">
-                Email us
-              </a>
-            </Magnetic>
-            <Magnetic strength={0.22}>
-              <a href={`tel:${PHONE_TEL}`} className="btn-ghost">
-                Call {PHONE_DISPLAY}
-              </a>
-            </Magnetic>
+          <QuoteForm />
+          <div className="mt-8 border-t border-[rgba(0,120,168,0.14)] pt-8">
+            <p className="mb-4 text-sm font-medium uppercase tracking-wide text-[color:var(--color-ink-2)]">
+              Or contact us directly
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Magnetic>
+                <a href={`mailto:${EMAIL}`} className="btn-ghost">
+                  Email us
+                </a>
+              </Magnetic>
+              <Magnetic strength={0.22}>
+                <a href={`tel:${PHONE_TEL}`} className="btn-ghost">
+                  Call {PHONE_DISPLAY}
+                </a>
+              </Magnetic>
+            </div>
+            <address className="mt-6 not-italic text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
+              {ADDRESS}
+            </address>
           </div>
-          <address className="not-italic text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
-            {ADDRESS}
-          </address>
         </m.div>
       </m.div>
     </Section>
