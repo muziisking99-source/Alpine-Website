@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 /**
  * Lenis smooth scroll wrapper — only active on desktop, full capability mode.
  * Disabled on: reduced-motion, Save-Data, low-memory, mobile/touch.
+ * Deferred until after first paint to avoid blocking initial render.
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const lenisRef = useRef<Lenis | null>(null);
@@ -26,30 +27,55 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Initialize Lenis
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // easeOutExpo
-      orientation: "vertical",
-      gestureOrientation: "vertical",
-      smoothWheel: true,
-      wheelMultiplier: 1,
-      touchMultiplier: 2,
-      infinite: false,
-    });
+    // Defer Lenis init until after first paint — avoids blocking shell render
+    let cancelled = false;
+    const initLenis = () => {
+      if (cancelled) return;
+      
+      const lenis = new Lenis({
+        duration: 1.2,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // easeOutExpo
+        orientation: "vertical",
+        gestureOrientation: "vertical",
+        smoothWheel: true,
+        wheelMultiplier: 1,
+        touchMultiplier: 2,
+        infinite: false,
+      });
 
-    lenisRef.current = lenis;
+      lenisRef.current = lenis;
 
-    function raf(time: number) {
-      lenis.raf(time);
+      function raf(time: number) {
+        lenis.raf(time);
+        requestAnimationFrame(raf);
+      }
+
       requestAnimationFrame(raf);
-    }
+    };
 
-    requestAnimationFrame(raf);
+    // Wait until browser is idle or 2s max, whichever comes first
+    const timeoutId = window.setTimeout(initLenis, 2000);
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    let idleId: number | undefined;
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(
+        () => {
+          window.clearTimeout(timeoutId);
+          initLenis();
+        },
+        { timeout: 2000 }
+      );
+    }
 
     // Cleanup
     return () => {
-      lenis.destroy();
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      if (idleId !== undefined) w.cancelIdleCallback?.(idleId);
+      lenisRef.current?.destroy();
       lenisRef.current = null;
     };
   }, []);
