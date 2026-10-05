@@ -18,6 +18,7 @@ import {
 import { BlurText } from "@/components/BlurText";
 import { Magnetic } from "@/components/Magnetic";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { SmoothScroll } from "@/components/SmoothScroll";
 import { SpotlightTilt } from "@/components/SpotlightTilt";
 
 export const Route = createFileRoute("/")({
@@ -1160,17 +1161,18 @@ function Index() {
   const [activeProduct, setActiveProduct] = useState<ProductType>("notebooks");
 
   return (
-    <LazyMotion features={domAnimation}>
-      <a href="#main-content" className="skip-link">
-        Skip to content
-      </a>
-      <div className="site-backdrop" aria-hidden />
-      {/* Desktop-only paper grain — CSS already hides below 768px */}
-      <div className="site-grain hidden md:block" aria-hidden />
-      <div className="relative z-10 min-h-[100dvh] overflow-x-clip bg-transparent">
-        <RulerProgress />
-        <Nav />
-        <main id="main-content">
+    <SmoothScroll>
+      <LazyMotion features={domAnimation}>
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
+        <div className="site-backdrop" aria-hidden />
+        {/* Desktop-only paper grain — CSS already hides below 768px */}
+        <div className="site-grain hidden md:block" aria-hidden />
+        <div className="relative z-10 min-h-[100dvh] overflow-x-clip bg-transparent">
+          <RulerProgress />
+          <Nav />
+          <main id="main-content">
           <Hero sectionRef={heroRef} showScene={showHero && heroNear} />
           <div ref={sheetsRef} className="scene-window-left relative">
             {showRest && (
@@ -1189,5 +1191,6 @@ function Index() {
         <Footer />
       </div>
     </LazyMotion>
+    </SmoothScroll>
   );
 }
