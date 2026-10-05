@@ -120,27 +120,20 @@ function scheduleIdle(cb: () => void, timeout = 500) {
 function useDeferredScenes() {
   const [mode, setMode] = useState<MotionMode>("idle");
   const [heroReady, setHeroReady] = useState(false);
-  const [restReady, setRestReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     let cancelIdle: (() => void) | undefined;
-    let cancelRest: (() => void) | undefined;
 
     const start = () => {
       if (cancelled) return;
       const next = resolveMotionMode();
       setMode(next);
       if (next !== "full") return;
-      // Reduced delay: mount hero scene sooner to start animations earlier
+      // Wait until the browser is quiet — never mid-scroll hitch from mounting 3D.
       cancelIdle = scheduleIdle(() => {
-        if (cancelled) return;
-        setHeroReady(true);
-        // Static scenes are cheap — mount soon after hero
-        cancelRest = scheduleIdle(() => {
-          if (!cancelled) setRestReady(true);
-        }, 150);
-      }, 250);
+        if (!cancelled) setHeroReady(true);
+      }, 400);
     };
 
     if (document.readyState === "complete") {
@@ -152,9 +145,7 @@ function useDeferredScenes() {
     const mqReduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onChange = () => {
       cancelIdle?.();
-      cancelRest?.();
       setHeroReady(false);
-      setRestReady(false);
       start();
     };
     mqReduced.addEventListener("change", onChange);
@@ -162,7 +153,6 @@ function useDeferredScenes() {
     return () => {
       cancelled = true;
       cancelIdle?.();
-      cancelRest?.();
       window.removeEventListener("load", start);
       mqReduced.removeEventListener("change", onChange);
     };
@@ -171,12 +161,43 @@ function useDeferredScenes() {
   return {
     mode,
     showHero: mode === "full" && heroReady,
-    showRest: mode === "full" && restReady,
   };
 }
 
+/** Mount heavy below-fold scenes only when approaching viewport */
+function useLazyScene(ref: RefObject<HTMLElement | null>, enabled: boolean) {
+  const [shouldMount, setShouldMount] = useState(false);
+  
+  useEffect(() => {
+    if (!enabled || shouldMount) return;
+    
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      // Fallback: mount after a delay if no IntersectionObserver
+      const t = setTimeout(() => setShouldMount(true), 800);
+      return () => clearTimeout(t);
+    }
+    
+    // Mount when section enters 100% below viewport (early prefetch)
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldMount(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "100% 0px" }
+    );
+    
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, enabled, shouldMount]);
+  
+  return shouldMount;
+}
+
 /** Unmount heavy scenes when off-screen (Chrome compositor win). */
-function useNearViewport(ref: RefObject<HTMLElement | null>, rootMargin = "15% 0px") {
+function useNearViewport(ref: RefObject<HTMLElement | null>, rootMargin = "20% 0px") {
   const [near, setNear] = useState(true);
   useEffect(() => {
     const el = ref.current;
@@ -453,7 +474,7 @@ function Hero({
       ref={sectionRef}
       id="hero"
       className="hero-band crop-marks relative scroll-mt-24 overflow-x-clip"
-      style={{ minHeight: reduce ? "100dvh" : "200dvh" }}
+      style={{ minHeight: reduce ? "100dvh" : "160dvh" }}
     >
       <div className="sticky top-0 min-h-[100dvh] overflow-x-clip pt-28 pb-40 sm:pb-24 lg:pt-32 lg:pb-32">
         <div className="hero-veil" aria-hidden />
@@ -536,7 +557,7 @@ function Hero({
               <ColorBar />
             </m.div>
           </m.div>
-        </m.div>
+        </div>
       </div>
     </section>
   );
@@ -583,7 +604,7 @@ function SectionOpener({
     <m.div
       initial="hidden"
       whileInView="show"
-      viewport={{ once: true, amount: 0.15 }}
+      viewport={{ once: true, amount: 0.25 }}
       variants={stagger}
       className="max-w-3xl"
     >
@@ -637,7 +658,7 @@ function Story() {
         <m.div
           initial="hidden"
           whileInView="show"
-          viewport={{ once: true, amount: 0.15 }}
+          viewport={{ once: true, amount: 0.25 }}
           variants={stagger}
           className="lg:col-span-7 lg:col-start-6 lg:pt-4"
         >
@@ -715,13 +736,13 @@ function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductTy
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio > 0.4) {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.25) {
             const id = entry.target.getAttribute("data-product-id") as ProductType;
             if (id) onProductChange(id);
           }
         });
       },
-      { threshold: [0.4, 0.6], rootMargin: "-20% 0px" }
+      { threshold: [0.25, 0.5], rootMargin: "0px 0px" }
     );
 
     cardRefs.current.forEach((el) => {
@@ -736,7 +757,7 @@ function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductTy
       <m.div
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: true, amount: 0.25 }}
         variants={stagger}
         className="max-w-3xl lg:ml-[min(38%,22rem)]"
       >
@@ -767,7 +788,7 @@ function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductTy
       <m.div
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.12 }}
+        viewport={{ once: true, amount: 0.2 }}
         variants={stagger}
         className="mt-12 divide-y divide-[rgba(0,120,168,0.12)] border-y border-[rgba(0,120,168,0.12)] md:hidden"
       >
@@ -804,7 +825,7 @@ function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductTy
       <m.div
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.12 }}
+        viewport={{ once: true, amount: 0.2 }}
         variants={stagger}
         className="mt-16 hidden gap-5 md:grid md:grid-cols-12 lg:pl-[min(34%,18rem)]"
       >
@@ -960,7 +981,7 @@ function HowWeWork({
           <m.p
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.15 }}
+            viewport={{ once: true, amount: 0.25 }}
             variants={variants}
             className="max-w-xl text-[18px] leading-relaxed text-[color:var(--color-body)] lg:col-span-6 lg:col-start-1 lg:pt-4"
           >
@@ -981,14 +1002,14 @@ function HowWeWork({
               className="absolute left-0 right-0 top-6 hidden h-px origin-left bg-gradient-to-r from-[color:var(--color-royal)] to-[color:var(--color-eco)] lg:block"
               initial={{ scaleX: 0, opacity: 0.15 }}
               whileInView={{ scaleX: 1, opacity: 0.4 }}
-              viewport={{ once: true, amount: 0.35 }}
+              viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.75, ease: MOTION_EASE }}
             />
           )}
           <m.div
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.15 }}
+            viewport={{ once: true, amount: 0.25 }}
             variants={stagger}
             className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4"
           >
@@ -1032,7 +1053,7 @@ function CTA() {
       <m.div
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: true, amount: 0.25 }}
         variants={stagger}
         className="grid gap-12 lg:grid-cols-12"
       >
@@ -1163,8 +1184,10 @@ function Index() {
   const heroRef = useRef<HTMLElement | null>(null);
   const sheetsRef = useRef<HTMLDivElement | null>(null);
   const workRef = useRef<HTMLElement | null>(null);
-  const { showHero, showRest } = useDeferredScenes();
+  const { showHero } = useDeferredScenes();
   const heroNear = useNearViewport(heroRef, "30% 0px");
+  const sheetsMounted = useLazyScene(sheetsRef, showHero);
+  const workMounted = useLazyScene(workRef, showHero);
   const [activeProduct, setActiveProduct] = useState<ProductType>("notebooks");
 
   return (
@@ -1182,7 +1205,7 @@ function Index() {
           <main id="main-content">
           <Hero sectionRef={heroRef} showScene={showHero && heroNear} />
           <div ref={sheetsRef} className="scene-window-left relative">
-            {showRest && (
+            {sheetsMounted && (
               <Suspense fallback={null}>
                 <LazySheetsFan sectionRef={sheetsRef} product={PRODUCT_COLORS[activeProduct]} />
               </Suspense>
@@ -1192,7 +1215,7 @@ function Index() {
               <WhatWePrint onProductChange={setActiveProduct} />
             </div>
           </div>
-          <HowWeWork sectionRef={workRef} showScene={showRest} />
+          <HowWeWork sectionRef={workRef} showScene={workMounted} />
           <CTA />
         </main>
         <Footer />

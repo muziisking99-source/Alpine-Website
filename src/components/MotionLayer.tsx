@@ -112,28 +112,28 @@ export function HeroNotebookScene({
   });
 
   // Staged cinematic beats: closed → crack → reveal pages → pull-back
-  // Each stage gets its own scroll range for readability
+  // Tighter progression so animation completes before user exits hero
   const coverOpen = useTransform(
     scrollYProgress,
-    [0, 0.15, 0.35, 0.65, 1],
+    [0, 0.12, 0.28, 0.55, 0.85],
     reduce ? [-22, -22, -22, -22, -22] : [-18, -28, -65, -88, -95],
   );
   
   const pageReveal = useTransform(
     scrollYProgress,
-    [0, 0.25, 0.5, 1],
+    [0, 0.2, 0.42, 0.85],
     [0, 0, 1, 1],
   );
   
   const y = useTransform(
     scrollYProgress, 
-    [0, 0.7, 1], 
+    [0, 0.6, 0.9], 
     [0, reduce ? 0 : -8, reduce ? 0 : -20]
   );
 
   const scale = useTransform(
     scrollYProgress,
-    [0, 0.4, 0.8, 1],
+    [0, 0.35, 0.7, 0.9],
     [1, 1.04, 0.98, 0.96],
   );
 
@@ -167,21 +167,21 @@ export function SheetsFanScene({
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start end", "end start"],
+    offset: ["start 85%", "end start"],
   });
   const y = useTransform(
     scrollYProgress,
-    [0.1, 0.9],
+    [0, 0.8],
     [reduce ? 0 : 36, reduce ? 0 : -56],
   );
   const rot = useTransform(
     scrollYProgress,
-    [0.1, 0.9],
+    [0, 0.8],
     [reduce ? -4 : 10, reduce ? -4 : -14],
   );
   const spread = useTransform(
     scrollYProgress,
-    [0.15, 0.55],
+    [0.05, 0.45],
     reduce ? [1, 1] : [0.15, 1],
   );
 
@@ -213,21 +213,21 @@ export function BindingPileScene({
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start center", "end start"],
+    offset: ["start 75%", "end start"],
   });
   const y = useTransform(
     scrollYProgress,
-    [0.15, 0.9],
+    [0.05, 0.85],
     [reduce ? 0 : 32, reduce ? 0 : -48],
   );
   const rot = useTransform(
     scrollYProgress,
-    [0.15, 0.9],
+    [0.05, 0.85],
     [reduce ? -6 : -16, reduce ? -6 : 12],
   );
   
   // Stage progression: 0 = Print, 0.25 = Cut, 0.5 = Bind, 0.75+ = Finish
-  const stage = useTransform(scrollYProgress, [0.1, 0.3, 0.5, 0.7, 0.9], [0, 1, 2, 3, 4]);
+  const stage = useTransform(scrollYProgress, [0, 0.25, 0.45, 0.65, 0.85], [0, 1, 2, 3, 4]);
 
   return (
     <div
