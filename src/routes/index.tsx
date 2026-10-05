@@ -239,9 +239,9 @@ function Logo({
       aria-label="Alpine-eco Notebooks & Diaries — home"
     >
       <picture>
-        <source srcSet="/alpine-eco-logo.webp?v=3" type="image/webp" />
+        <source srcSet="/alpine-eco-logo-opt.webp?v=4" type="image/webp" />
         <img
-          src="/alpine-eco-logo.png?v=3"
+          src="/alpine-eco-logo-opt.png?v=4"
           alt="Alpine-eco Notebooks & Diaries"
           className={sizeClass}
           width={360}
