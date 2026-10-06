@@ -44,7 +44,7 @@ export function BlurText({
       ? {
           initial: "hidden" as const,
           whileInView: "show" as const,
-          viewport: { once: true, amount: 0.35 },
+          viewport: { once: true, amount: 0.15, rootMargin: "-50px 0px" },
         }
       : {
           initial: "hidden" as const,

@@ -16,10 +16,9 @@ import {
 } from "react";
 
 import { BlurText } from "@/components/BlurText";
-import { Magnetic } from "@/components/Magnetic";
 import { QuoteForm } from "@/components/QuoteForm";
 import { ScrollReveal } from "@/components/ScrollReveal";
-import { SmoothScroll } from "@/components/SmoothScroll";
+import { SmoothScroll, useLenis } from "@/components/SmoothScroll";
 import { SpotlightTilt } from "@/components/SpotlightTilt";
 
 export const Route = createFileRoute("/")({
@@ -69,6 +68,9 @@ const PRODUCT_COLORS = {
 } as const;
 
 const LazyMobileNavSheet = lazy(() => import("@/components/MobileNavSheet"));
+const LazyMagnetic = lazy(() => 
+  import("@/components/Magnetic").then((mod) => ({ default: mod.Magnetic }))
+);
 const LazyHeroNotebook = lazy(() =>
   import("@/components/MotionLayer").then((mod) => ({
     default: mod.HeroNotebookScene,
@@ -314,13 +316,15 @@ function NavLink({
 function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("hero");
+  const lenis = useLenis();
 
   useEffect(() => {
     let raf = 0;
-    const onScroll = () => {
+    const updateNav = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        setScrolled(window.scrollY > 64);
+        const scrollY = lenis?.scroll ?? window.scrollY;
+        setScrolled(scrollY > 64);
         const ids = ["hero", "story", "print", "work", "contact"] as const;
         let current: string = "hero";
         for (const id of ids) {
@@ -331,19 +335,31 @@ function Nav() {
         setActive(current);
       });
     };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
+
+    updateNav();
+
+    if (lenis) {
+      lenis.on("scroll", updateNav);
+    } else {
+      window.addEventListener("scroll", updateNav, { passive: true });
+    }
+
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
+      if (lenis) {
+        lenis.off("scroll", updateNav);
+      } else {
+        window.removeEventListener("scroll", updateNav);
+      }
     };
-  }, []);
+  }, [lenis]);
 
   const onDark = false;
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-[background,box-shadow,backdrop-filter] duration-300 ${
+      style={{ willChange: scrolled ? "auto" : "background-color, box-shadow" }}
+      className={`fixed top-0 left-0 right-0 z-50 transition-[background,box-shadow] duration-300 ${
         scrolled
           ? "bg-white/92 shadow-[0_1px_0_rgba(0,120,168,0.1)] backdrop-blur-md"
           : "border-b border-[rgba(0,120,168,0.08)] bg-[rgba(243,247,248,0.72)] backdrop-blur-md"
@@ -487,7 +503,7 @@ function Hero({
 
         <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 sm:px-8 lg:grid-cols-12 lg:px-12">
           <m.div
-            initial={reduce ? false : "hidden"}
+            initial={false}
             animate="show"
             variants={stagger}
             className="lg:col-span-5 xl:col-span-6"
@@ -528,7 +544,7 @@ function Hero({
               Notebooks, diaries and journals, printed and bound under one roof in Stafford.
             </m.p>
             <m.div variants={variants} className="mt-10 flex flex-wrap gap-3">
-              <Magnetic>
+              <Suspense fallback={
                 <a
                   href="#contact"
                   onClick={(e) => {
@@ -539,8 +555,21 @@ function Hero({
                 >
                   Request a quotation
                 </a>
-              </Magnetic>
-              <Magnetic strength={0.22}>
+              }>
+                <LazyMagnetic>
+                  <a
+                    href="#contact"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollTo("contact");
+                    }}
+                    className="btn-primary"
+                  >
+                    Request a quotation
+                  </a>
+                </LazyMagnetic>
+              </Suspense>
+              <Suspense fallback={
                 <a
                   href="#print"
                   onClick={(e) => {
@@ -551,7 +580,20 @@ function Hero({
                 >
                   The range
                 </a>
-              </Magnetic>
+              }>
+                <LazyMagnetic strength={0.22}>
+                  <a
+                    href="#print"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollTo("print");
+                    }}
+                    className="btn-ghost"
+                  >
+                    The range
+                  </a>
+                </LazyMagnetic>
+              </Suspense>
             </m.div>
             <m.div variants={variants} className="mt-12">
               <ColorBar />
@@ -604,7 +646,7 @@ function SectionOpener({
     <m.div
       initial="hidden"
       whileInView="show"
-      viewport={{ once: true, amount: 0.25 }}
+      viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
       variants={stagger}
       className="max-w-3xl"
     >
@@ -658,7 +700,7 @@ function Story() {
         <m.div
           initial="hidden"
           whileInView="show"
-          viewport={{ once: true, amount: 0.25 }}
+          viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
           variants={stagger}
           className="lg:col-span-7 lg:col-start-6 lg:pt-4"
         >
@@ -757,7 +799,7 @@ function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductTy
       <m.div
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.25 }}
+        viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
         variants={stagger}
         className="max-w-3xl lg:ml-[min(38%,22rem)]"
       >
@@ -788,7 +830,7 @@ function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductTy
       <m.div
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.2 }}
+        viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
         variants={stagger}
         className="mt-12 divide-y divide-[rgba(0,120,168,0.12)] border-y border-[rgba(0,120,168,0.12)] md:hidden"
       >
@@ -825,7 +867,7 @@ function WhatWePrint({ onProductChange }: { onProductChange: (product: ProductTy
       <m.div
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.2 }}
+        viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
         variants={stagger}
         className="mt-16 hidden gap-5 md:grid md:grid-cols-12 lg:pl-[min(34%,18rem)]"
       >
@@ -981,7 +1023,7 @@ function HowWeWork({
           <m.p
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.25 }}
+            viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
             variants={variants}
             className="max-w-xl text-[18px] leading-relaxed text-[color:var(--color-body)] lg:col-span-6 lg:col-start-1 lg:pt-4"
           >
@@ -1002,14 +1044,14 @@ function HowWeWork({
               className="absolute left-0 right-0 top-6 hidden h-px origin-left bg-gradient-to-r from-[color:var(--color-royal)] to-[color:var(--color-eco)] lg:block"
               initial={{ scaleX: 0, opacity: 0.15 }}
               whileInView={{ scaleX: 1, opacity: 0.4 }}
-              viewport={{ once: true, amount: 0.2 }}
+              viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
               transition={{ duration: 0.75, ease: MOTION_EASE }}
             />
           )}
           <m.div
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.25 }}
+            viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
             variants={stagger}
             className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4"
           >
@@ -1050,14 +1092,14 @@ function CTA() {
   const stagger = useStaggerParent();
   return (
     <Section id="contact" className="bg-[color:var(--color-cream)]">
-      <m.div
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, amount: 0.25 }}
-        variants={stagger}
-        className="grid gap-12 lg:grid-cols-12"
-      >
-        <div className="lg:col-span-6">
+      <div className="grid gap-12 lg:grid-cols-12">
+        <m.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
+          variants={stagger}
+          className="lg:col-span-6"
+        >
           <m.div variants={variants} className="mb-8">
             <ColorBar className="max-w-[180px]" />
           </m.div>
@@ -1074,34 +1116,43 @@ function CTA() {
             For corporate orders, short runs, or a custom binding. We are in Stafford,
             Johannesburg.
           </m.p>
-        </div>
-        <m.div
-          variants={variants}
-          className="lg:col-span-5 lg:col-start-8"
-        >
+        </m.div>
+        <div className="lg:col-span-5 lg:col-start-8">
           <QuoteForm />
           <div className="mt-8 border-t border-[rgba(0,120,168,0.14)] pt-8">
             <p className="mb-4 text-sm font-medium uppercase tracking-wide text-[color:var(--color-ink-2)]">
               Or contact us directly
             </p>
             <div className="flex flex-wrap gap-3">
-              <Magnetic>
+              <Suspense fallback={
                 <a href={`mailto:${EMAIL}`} className="btn-ghost">
                   Email us
                 </a>
-              </Magnetic>
-              <Magnetic strength={0.22}>
+              }>
+                <LazyMagnetic>
+                  <a href={`mailto:${EMAIL}`} className="btn-ghost">
+                    Email us
+                  </a>
+                </LazyMagnetic>
+              </Suspense>
+              <Suspense fallback={
                 <a href={`tel:${PHONE_TEL}`} className="btn-ghost">
                   Call {PHONE_DISPLAY}
                 </a>
-              </Magnetic>
+              }>
+                <LazyMagnetic strength={0.22}>
+                  <a href={`tel:${PHONE_TEL}`} className="btn-ghost">
+                    Call {PHONE_DISPLAY}
+                  </a>
+                </LazyMagnetic>
+              </Suspense>
             </div>
             <address className="mt-6 not-italic text-[15px] leading-relaxed text-[color:var(--color-body)] md:text-[16px]">
               {ADDRESS}
             </address>
           </div>
-        </m.div>
-      </m.div>
+        </div>
+      </div>
     </Section>
   );
 }

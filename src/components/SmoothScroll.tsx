@@ -1,5 +1,11 @@
 import Lenis from "lenis";
-import { useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+
+const LenisContext = createContext<Lenis | null>(null);
+
+export function useLenis() {
+  return useContext(LenisContext);
+}
 
 /**
  * Lenis smooth scroll wrapper — only active on desktop, full capability mode.
@@ -8,6 +14,7 @@ import { useEffect, useRef } from "react";
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const lenisRef = useRef<Lenis | null>(null);
+  const [lenisInstance, setLenisInstance] = useState<Lenis | null>(null);
 
   useEffect(() => {
     // Feature gate: skip smooth scroll on constrained devices or preferences
@@ -44,6 +51,7 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       });
 
       lenisRef.current = lenis;
+      setLenisInstance(lenis);
 
       function raf(time: number) {
         lenis.raf(time);
@@ -77,8 +85,13 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       if (idleId !== undefined) w.cancelIdleCallback?.(idleId);
       lenisRef.current?.destroy();
       lenisRef.current = null;
+      setLenisInstance(null);
     };
   }, []);
 
-  return <>{children}</>;
+  return (
+    <LenisContext.Provider value={lenisInstance}>
+      {children}
+    </LenisContext.Provider>
+  );
 }
