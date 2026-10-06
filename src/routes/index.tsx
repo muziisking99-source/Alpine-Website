@@ -1051,12 +1051,19 @@ function HowWeWork({
           <m.div
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.15, rootMargin: "-50px 0px" }}
+            viewport={{ once: true, amount: 0.08, rootMargin: "-50px 0px -150px 0px" }}
             variants={stagger}
             className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4"
           >
-            {steps.map(([n, title, desc]) => (
-              <m.div key={n} variants={variants} className="relative">
+            {steps.map(([n, title, desc], idx) => (
+              <m.div 
+                key={n} 
+                variants={variants}
+                className="relative"
+                style={{ 
+                  transitionDelay: reduce ? undefined : `${Math.min(idx * MOTION_STAGGER, 0.12)}s` 
+                }}
+              >
                 {reduce ? (
                   <div
                     aria-hidden
